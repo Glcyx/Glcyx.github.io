@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"glcyx.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","width":250,"display":"post","padding":13,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="三模块MLIRGen遍历抽象语法树 Dialect负责定义各种操作和分析,具备可拓展性 TableGen使用Operation Definition Specification (ODS)框架进行自动化生成代码，整个框架是基于TableGen规则来完成相应功能,TableGen定义各种类 模块组装 这图还挺清晰的 TableGen是一种声明性编程语言(Declarative Programming">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MLIR_Toy_Tutorial">
+<meta property="og:url" content="https://glcyx.github.io/2026/04/05/MLIR_Toy_Tutorial%E5%88%9D%E8%A7%88/index.html">
+<meta property="og:site_name" content="Glcyx的博客">
+<meta property="og:description" content="三模块MLIRGen遍历抽象语法树 Dialect负责定义各种操作和分析,具备可拓展性 TableGen使用Operation Definition Specification (ODS)框架进行自动化生成代码，整个框架是基于TableGen规则来完成相应功能,TableGen定义各种类 模块组装 这图还挺清晰的 TableGen是一种声明性编程语言(Declarative Programming">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://glcyx.github.io/v2-95f6bf7b8482ab5a4d8541d16ba6cf7b_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-4bc66c2bac236727a5623882efc02f2c_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-854bbcfb05c8afca5197bcab7e66005a_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-3b743446a5abd4bbb7a08417d0d8cfbb_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-5cec47dc4716e749aa2971d6078ec7e6_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-34ada981bb35929d0da2fb05bd0656ec_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-35acf3ad890e02db49eb6ec47b0c7043_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-62727b82a413a3012371d0d1d35852dc_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/image-20260320175634711.png">
+<meta property="og:image" content="https://glcyx.github.io/v2-882e96132eed84a8cab08dec7a66d53b_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-d7d2b49f1e01d45c52b6b9b6f898d96b_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-0b2a2c6b25d40dcda1485bfc5acb2dd0_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-d7c171eb4eec42d97be6e00f887150f4_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-d5c003332168c12f29fadc9c89c54f11_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-9e33b0fb0a534b564f0915b638fbdbe7_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-d7d2b49f1e01d45c52b6b9b6f898d96b_1440w.jpg">
+<meta property="article:published_time" content="2026-04-05T10:29:33.000Z">
+<meta property="article:modified_time" content="2026-04-05T11:30:40.059Z">
+<meta property="article:author" content="Glcyx">
+<meta property="article:tag" content="MLIR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://glcyx.github.io/v2-95f6bf7b8482ab5a4d8541d16ba6cf7b_1440w.jpg">
+
+<link rel="canonical" href="https://glcyx.github.io/2026/04/05/MLIR_Toy_Tutorial%E5%88%9D%E8%A7%88/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MLIR_Toy_Tutorial | Glcyx的博客</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?0df27ec3441ae8df38c4aca0b3fb2949";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Glcyx的博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录与思考</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/04/05/MLIR_Toy_Tutorial%E5%88%9D%E8%A7%88/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MLIR_Toy_Tutorial
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-04-05 18:29:33 / 修改时间：19:30:40" itemprop="dateCreated datePublished" datetime="2026-04-05T18:29:33+08:00">2026-04-05</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="三模块"><a href="#三模块" class="headerlink" title="三模块"></a>三模块</h2><h3 id="MLIRGen"><a href="#MLIRGen" class="headerlink" title="MLIRGen"></a>MLIRGen</h3><p>遍历抽象语法树</p>
+<h3 id="Dialect"><a href="#Dialect" class="headerlink" title="Dialect"></a>Dialect</h3><p>负责定义各种操作和分析,具备可拓展性</p>
+<h3 id="TableGen"><a href="#TableGen" class="headerlink" title="TableGen"></a>TableGen</h3><p>使用Operation Definition Specification (ODS)框架进行自动化生成代码，整个框架是基于TableGen规则来完成相应功能,TableGen定义各种类</p>
+<h3 id="模块组装"><a href="#模块组装" class="headerlink" title="模块组装"></a>模块组装</h3><p><img src="/v2-95f6bf7b8482ab5a4d8541d16ba6cf7b_1440w.jpg" alt="img"></p>
+<p>这图还挺清晰的</p>
+<h2 id="TableGen-1"><a href="#TableGen-1" class="headerlink" title="TableGen"></a>TableGen</h2><p>是一种<strong>声明性编程语言(Declarative Programming Language)</strong></p>
+<blockquote>
+<p>开发者定义目标与要实现的结果,由语言的执行引擎具体实现</p>
+<p>简洁,高抽象,可读性强,常见的有SQL,CSS…</p>
+</blockquote>
+<p>TableGen描述硬件架构,指令集,寄存器,操作符等属性,并以此自动生成目标代码,源代码中以<code>.td</code>文件形式存在,编译时自动生成C++相应文件,为Dialect模块文件提供支持</p>
+<p>以Toy语言为例,深入研究TableGen</p>
+<h3 id="1-Dialect链接"><a href="#1-Dialect链接" class="headerlink" title="1. Dialect链接"></a>1. Dialect链接</h3><p>首先我们在<code>.td</code>文件中定义一个TableGen与Dialect的链接,负责把Dialect中定义的所有OPeration整合</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// Provide a definition of the &#x27;toy&#x27; dialect in the ODS framework so that we</span><br><span class="line">// can define our operations.</span><br><span class="line">def Toy_Dialect : Dialect &#123;</span><br><span class="line">  let name = &quot;toy&quot;;</span><br><span class="line">  let cppNamespace = &quot;toy&quot;;</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<h3 id="2-创建Operation基类"><a href="#2-创建Operation基类" class="headerlink" title="2. 创建Operation基类"></a>2. 创建Operation基类</h3><p>构造所有Dialect OPeration 的基类<code>Toy_Op</code>,所有的Operation都会基于此类构造</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">class Toy_Op&lt;string mnemonic, list&lt;OpTrait&gt; traits = []&gt; :</span><br><span class="line">    Op&lt;Toy_Dialect, mnemonic, traits&gt;;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3-自定义Operation"><a href="#3-自定义Operation" class="headerlink" title="3. 自定义Operation"></a>3. 自定义Operation</h3><p>所有的类都继承上述基类,以<code>TransposeOp</code>为例,使用TableGen规则定义参数,值,builder,verifier等</p>
+<p>而一个operation需要指定:</p>
+<ul>
+<li>operation名字:在MLIR中唯一的标识符</li>
+<li>operation的特性:下文会提到,例如是否要移除<code>side-effect</code>,是否要验证操作数和结果类型是否相同,由C++特性提供支持</li>
+<li>操作的参数,操作的结果 </li>
+<li>操作的描述和方言的特定信息</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">def TransposeOp : Toy_Op&lt;&quot;transpose&quot;&gt; &#123;</span><br><span class="line">  let summary = &quot;transpose operation&quot;;</span><br><span class="line"></span><br><span class="line">  let arguments = (ins F64Tensor:$input);</span><br><span class="line">  let results = (outs F64Tensor);</span><br><span class="line"></span><br><span class="line">  // Allow building a TransposeOp with from the input operand.</span><br><span class="line">  let builders = [</span><br><span class="line">    OpBuilder&lt;&quot;Builder *b, OperationState &amp;state, Value input&quot;&gt;</span><br><span class="line">  ];</span><br><span class="line"></span><br><span class="line">  // Invoke a static verify method to verify this transpose operation.</span><br><span class="line">  let verifier = [&#123; return ::verify(*this); &#125;];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-TableGen生成C-代码"><a href="#4-TableGen生成C-代码" class="headerlink" title="4. TableGen生成C++代码"></a>4. TableGen生成C++代码</h3><p>利用MLIR中的<code>mlir-tblgen</code>工具进行编译,编译时TableGen会把<code>.td</code>文件生成为C++文件,生成的代码会为DIalect提供支持</p>
+<h2 id="Operation-Definition-Specification-ODS"><a href="#Operation-Definition-Specification-ODS" class="headerlink" title="Operation Definition Specification(ODS)"></a>Operation Definition Specification(ODS)</h2><p>一种Operation定义的规范, 按这种规范写的自定义Operation,可以拓展为等价的<code>mlir:Op</code>的C++代码.</p>
+<h3 id="解析Operation定义中字段含义"><a href="#解析Operation定义中字段含义" class="headerlink" title="解析Operation定义中字段含义"></a>解析Operation定义中字段含义</h3><p><img src="/v2-4bc66c2bac236727a5623882efc02f2c_1440w.jpg" alt="img"></p>
+<h2 id="TableGen模块生成C-代码与映射冠关系"><a href="#TableGen模块生成C-代码与映射冠关系" class="headerlink" title="TableGen模块生成C++代码与映射冠关系"></a>TableGen模块生成C++代码与映射冠关系</h2><p><img src="/v2-854bbcfb05c8afca5197bcab7e66005a_1440w.jpg" alt="img"></p>
+<p><img src="/v2-3b743446a5abd4bbb7a08417d0d8cfbb_1440w.jpg" alt="img"></p>
+<h2 id="MLIR表达式变形"><a href="#MLIR表达式变形" class="headerlink" title="MLIR表达式变形"></a>MLIR表达式变形</h2><p>得到MLIR表达式后,我们就要对其优化,必然少不了重写</p>
+<p>MLIR想要实现表达式的匹配与重写,有两种方法:1.直接用C++编写表达式 2.使用Declarative  Rewrites Rules(DRR,声明式重写规则)来定义重写规则,并使用ODS框架自动生成代码</p>
+<h3 id="1-C-编写表达式的匹配与重写函数-命令式"><a href="#1-C-编写表达式的匹配与重写函数-命令式" class="headerlink" title="1. C++编写表达式的匹配与重写函数(命令式)"></a>1. C++编写表达式的匹配与重写函数(命令式)</h3><p>以Tanspose为例</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">def transpose_transpose(x) &#123;</span><br><span class="line">  return transpose(transpose(x));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在没有添加变形规则时,生成的MLIR表达式如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">func @transpose_transpose(%arg0: tensor&lt;*xf64&gt;) -&gt; tensor&lt;*xf64&gt; &#123;</span><br><span class="line">  %0 = &quot;toy.transpose&quot;(%arg0) : (tensor&lt;*xf64&gt;) to tensor&lt;*xf64&gt;</span><br><span class="line">  %1 = &quot;toy.transpose&quot;(%0) : (tensor&lt;*xf64&gt;) to tensor&lt;*xf64&gt;</span><br><span class="line">  &quot;toy.return&quot;(%1) : (tensor&lt;*xf64&gt;) -&gt; ()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但实际上,转置两次等于什么都不做,我们使用C++直接编写表达式的匹配与重写函数,这就是一个<code>pattern</code>: 一个IR的匹配规则+替换规则 </p>
+<p>有匹配的部分 也有重写的部分</p>
+<p><img src="/v2-5cec47dc4716e749aa2971d6078ec7e6_1440w.jpg" alt="img"></p>
+<p>与此同时 要在<code>.td</code>文件中开启<code>hasCanonicalizer</code>选项,以便使用<code>canonicalizer</code>框架,同时添加[NoSideEffect]参数,清除side-effect</p>
+<p><img src="/v2-34ada981bb35929d0da2fb05bd0656ec_1440w.jpg" alt="img"></p>
+<h3 id="2-使用DRR规则来定义重写规则-声明式"><a href="#2-使用DRR规则来定义重写规则-声明式" class="headerlink" title="2. 使用DRR规则来定义重写规则(声明式)"></a>2. 使用DRR规则来定义重写规则(声明式)</h3><p>基于规则的方式自动生成表达式匹配和重写函数,利用ODS框架进行代码生成</p>
+<p><img src="/v2-35acf3ad890e02db49eb6ec47b0c7043_1440w.jpg" alt="img"></p>
+<h3 id="将MLIR表达式变型加入编译流程中"><a href="#将MLIR表达式变型加入编译流程中" class="headerlink" title="将MLIR表达式变型加入编译流程中"></a>将MLIR表达式变型加入编译流程中</h3><p>在MLIRGen根据AST生成未经优化的mlir表达式,在表达式内添加一个Pass,然后使用canonicalization框架进行表达式变型</p>
+<p><img src="/v2-62727b82a413a3012371d0d1d35852dc_1440w.jpg" alt="img"></p>
+<h3 id="MLIR-Rewrite-重写-的用途"><a href="#MLIR-Rewrite-重写-的用途" class="headerlink" title="MLIR Rewrite(重写)的用途"></a>MLIR Rewrite(重写)的用途</h3><ul>
+<li>优化(Optimization): 常量折叠,消除冗余操作</li>
+<li>降级(lowering):高级Dialect-&gt;低级Dialect</li>
+<li>规范化(Canonicalization):同一IR形式</li>
+</ul>
+<p>使用上述两种方法确实可以对表达式进行自定义变形,但是只能针对特定的一个Operation变型,而相似的变型却不能直接套用,导致代码重复,徒增工作量</p>
+<p>我们引入<strong>interfaces</strong>(接口)机制,针对常见的优化模式,编写可复用的变型代码</p>
+<p><img src="/image-20260320175634711.png" alt="image-20260320175634711"></p>
+<p>在<code>PassManager</code>中添加的Pass会按照指定顺序进行执行，MLIR框架会自动调用这些Pass的<code>runOnOperation</code>方法，在这些方法中执行具体的优化任务</p>
+<p>这里提到了内联(inline) pass和Shape推断pass</p>
+<h3 id="内联Pass"><a href="#内联Pass" class="headerlink" title="内联Pass"></a>内联Pass</h3><p>内联Pass可以用定义的函数体代替函数的调用. 对于一些小的函数,对其调用,返回的准备和收尾工作或许比本身代码大得多,因此对这类简单的,使用频繁的小函数,声明为内联函数能提高效率</p>
+<h4 id="Dialect接口"><a href="#Dialect接口" class="headerlink" title="Dialect接口:"></a>Dialect接口:</h4><p>MLIR本身提供了<code>DialectlinerInterface</code>接口,我们只需要继承它然后实现所需函数,就能自定义内联操作</p>
+<h4 id="Operation接口"><a href="#Operation接口" class="headerlink" title="Operation接口:"></a>Operation接口:</h4><p>我们还需要知道函数在哪里内联,MLIR提供了<code>CallOpInterface</code>接口,会对函数调用进行标记,告知内联操作 函数调用的位置</p>
+<p><img src="/v2-882e96132eed84a8cab08dec7a66d53b_1440w.jpg" alt="img"></p>
+<p>而在函数调用时的类型与函数定义的类型可能不一致,在定义时参数是泛化的<code>tensor&lt;*xf64&gt;</code>,任意的,而调用时候参数是确定的类型<code>tensor&lt;2x3xf64&gt;</code>,</p>
+<p>MLIR 的类型系统是静态的、严格的，函数定义和函数调用处的类型必须完全匹配才能合法内联，否则 verifier 会直接报错(在上面的Operation特性有提到过)  然后我们也不能把泛化累心转化为特定类型,可能会发生错误,因为这是把大范围变成小范围,可能不在小范围内,是未定义行为</p>
+<p>再次我们添加<code>CastOp</code>,用来将确定的类型转变为泛化的类型,我们在Operation中顶i一CastOp,然后再Dialect模块的内联操作接口中重写相应函数,从而再MLIR表达式中加入CastOp</p>
+<p><img src="/v2-d7d2b49f1e01d45c52b6b9b6f898d96b_1440w.jpg" alt="img"></p>
+<h3 id="Shape推断Pass"><a href="#Shape推断Pass" class="headerlink" title="Shape推断Pass"></a>Shape推断Pass</h3><p>哦 我操你嘴巴 原来还是要根据确定类型的tensor把转化成泛化类型的tensor,转变为确定类型的tensor…</p>
+<p>我们用ODS框架生成自定义OPeration接口,作为一个pass,推测tensor的类型</p>
+<p><img src="/v2-0b2a2c6b25d40dcda1485bfc5acb2dd0_1440w.jpg" alt="img"></p>
+<p>shape推断算法:<br><img src="/v2-d7c171eb4eec42d97be6e00f887150f4_1440w.jpg" alt="img"></p>
+<h2 id="部分Lowering"><a href="#部分Lowering" class="headerlink" title="部分Lowering"></a>部分Lowering</h2><blockquote>
+<p>源程序从IR到运行再处理器上面,还要进行一系列lowering,部分lowering指的是 从一个高级别dialect到低级别dialect的过程中,只lowering一部分operation,剩下的operation只需要经过升级能够与其他DIalect共存即可</p>
+</blockquote>
+<p>我们要使用MLIR提供的仿射变换Dialect:<code>Affine</code>,但是该Dialect不支持 toy中的print,所以我们对print操作进行升级</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">let arguments = (ins F64Tensor:$input);</span><br><span class="line">           ↓↓↓↓↓↓</span><br><span class="line">let arguments = (ins AnyTypeOf&lt;[F64Tensor, F64MemRef]&gt;:$input);</span><br></pre></td></tr></table></figure>
+
+<p>此时,print可以同时接受<code>F64Tensor</code>和<code>F64MemRef</code>类型的参数,后者是affine dialect支持的类型,实现共存</p>
+<h3 id="ToyToAffine模块"><a href="#ToyToAffine模块" class="headerlink" title="ToyToAffine模块"></a>ToyToAffine模块</h3><p>将原有的MLIR表达式lowering到新表达式,就是把原来的Operation换成更接近底层的Operation,所以我们在ToyToAffine模块中,要把原来的TToyOperation识别出来,用Affine dialect里的operation进行替换,与此同时在写pass时添加新dialect 禁用原来的toy dialect,这样就完成了Lowering</p>
+<p>首先,在ToyToAffine模块中,针对每个要替换的Operation定义匹配和重写规则</p>
+<p>然后,编写pass,使用<code>addLegalDialect</code>函数把<code>Affine</code>和<code>Standard</code>Dialect进行合法化,并禁用Toy Dialect,但是前者不具备print op,所以在pass中还要<code>print</code>的支持,所以把<code>printOp</code>加到Dialect中,实现部分Lowering</p>
+<p><img src="/v2-d5c003332168c12f29fadc9c89c54f11_1440w.jpg" alt="img"></p>
+<p>此时表达式还有冗余部分,即转置相乘分在了两个循环内进行,此时使用<code>LoopFusionPass</code>和<code>MemRefDataFlowPass</code>消除冗余</p>
+<p><img src="/v2-9e33b0fb0a534b564f0915b638fbdbe7_1440w.jpg" alt="img"></p>
+<p>最后Lowering表达式如图:</p>
+<p><img src="/v2-d7d2b49f1e01d45c52b6b9b6f898d96b_1440w.jpg" alt="img"></p>
+<p>参考文章:</p>
+<p><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/141256429">法斯特豪斯大佬的系列文章</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MLIR/" rel="tag"># MLIR</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/05/%E5%85%B3%E4%BA%8EHexo%E7%9A%84%E4%BB%A3%E7%A0%81%E6%8A%98%E5%8F%A0/" rel="prev" title="关于Hexo的代码折叠">
+      <i class="fa fa-chevron-left"></i> 关于Hexo的代码折叠
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/04/05/hexo%E4%B8%8A%E4%BC%A0%E5%9B%BE%E7%89%87/" rel="next" title="hexo上传图片">
+      hexo上传图片 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E6%A8%A1%E5%9D%97"><span class="nav-number">1.</span> <span class="nav-text">三模块</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MLIRGen"><span class="nav-number">1.1.</span> <span class="nav-text">MLIRGen</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dialect"><span class="nav-number">1.2.</span> <span class="nav-text">Dialect</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TableGen"><span class="nav-number">1.3.</span> <span class="nav-text">TableGen</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E7%BB%84%E8%A3%85"><span class="nav-number">1.4.</span> <span class="nav-text">模块组装</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TableGen-1"><span class="nav-number">2.</span> <span class="nav-text">TableGen</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-Dialect%E9%93%BE%E6%8E%A5"><span class="nav-number">2.1.</span> <span class="nav-text">1. Dialect链接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%88%9B%E5%BB%BAOperation%E5%9F%BA%E7%B1%BB"><span class="nav-number">2.2.</span> <span class="nav-text">2. 创建Operation基类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E8%87%AA%E5%AE%9A%E4%B9%89Operation"><span class="nav-number">2.3.</span> <span class="nav-text">3. 自定义Operation</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-TableGen%E7%94%9F%E6%88%90C-%E4%BB%A3%E7%A0%81"><span class="nav-number">2.4.</span> <span class="nav-text">4. TableGen生成C++代码</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Operation-Definition-Specification-ODS"><span class="nav-number">3.</span> <span class="nav-text">Operation Definition Specification(ODS)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E6%9E%90Operation%E5%AE%9A%E4%B9%89%E4%B8%AD%E5%AD%97%E6%AE%B5%E5%90%AB%E4%B9%89"><span class="nav-number">3.1.</span> <span class="nav-text">解析Operation定义中字段含义</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TableGen%E6%A8%A1%E5%9D%97%E7%94%9F%E6%88%90C-%E4%BB%A3%E7%A0%81%E4%B8%8E%E6%98%A0%E5%B0%84%E5%86%A0%E5%85%B3%E7%B3%BB"><span class="nav-number">4.</span> <span class="nav-text">TableGen模块生成C++代码与映射冠关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MLIR%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%98%E5%BD%A2"><span class="nav-number">5.</span> <span class="nav-text">MLIR表达式变形</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-C-%E7%BC%96%E5%86%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E7%9A%84%E5%8C%B9%E9%85%8D%E4%B8%8E%E9%87%8D%E5%86%99%E5%87%BD%E6%95%B0-%E5%91%BD%E4%BB%A4%E5%BC%8F"><span class="nav-number">5.1.</span> <span class="nav-text">1. C++编写表达式的匹配与重写函数(命令式)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E4%BD%BF%E7%94%A8DRR%E8%A7%84%E5%88%99%E6%9D%A5%E5%AE%9A%E4%B9%89%E9%87%8D%E5%86%99%E8%A7%84%E5%88%99-%E5%A3%B0%E6%98%8E%E5%BC%8F"><span class="nav-number">5.2.</span> <span class="nav-text">2. 使用DRR规则来定义重写规则(声明式)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%86MLIR%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%98%E5%9E%8B%E5%8A%A0%E5%85%A5%E7%BC%96%E8%AF%91%E6%B5%81%E7%A8%8B%E4%B8%AD"><span class="nav-number">5.3.</span> <span class="nav-text">将MLIR表达式变型加入编译流程中</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MLIR-Rewrite-%E9%87%8D%E5%86%99-%E7%9A%84%E7%94%A8%E9%80%94"><span class="nav-number">5.4.</span> <span class="nav-text">MLIR Rewrite(重写)的用途</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E8%81%94Pass"><span class="nav-number">5.5.</span> <span class="nav-text">内联Pass</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Dialect%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.1.</span> <span class="nav-text">Dialect接口:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Operation%E6%8E%A5%E5%8F%A3"><span class="nav-number">5.5.2.</span> <span class="nav-text">Operation接口:</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Shape%E6%8E%A8%E6%96%ADPass"><span class="nav-number">5.6.</span> <span class="nav-text">Shape推断Pass</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%83%A8%E5%88%86Lowering"><span class="nav-number">6.</span> <span class="nav-text">部分Lowering</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ToyToAffine%E6%A8%A1%E5%9D%97"><span class="nav-number">6.1.</span> <span class="nav-text">ToyToAffine模块</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Glcyx"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Glcyx</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glcyx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glcyx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/884478769@qq.com" title="E-Mail → 884478769@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glcyx</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
+
+<script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+          load: ['[tex]/mhchem'],
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+          packages: {'[+]': ['mhchem']},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+    
+
+  
+
+</body>
+</html>

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"glcyx.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","width":250,"display":"post","padding":13,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="目标:了解深度学习算法基本原理 指你要懂常见深度学习算法最核心的思想，例如：  前向&#x2F;反向传播 梯度下降及其变种（SGD、Adam 等） 卷积、池化、注意力、RNN 等基本机制  不是要求你把数学推导到极致，但要能说明它们为何有效、怎么工作的。  熟悉神经网络基本架构及其算子计算方式  基本架构：CNN、RNN、Transformer、MLP 等 算子计算方式：卷积算子怎么计算、矩阵乘法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深度学习入门">
+<meta property="og:url" content="https://glcyx.github.io/2026/04/06/AI/index.html">
+<meta property="og:site_name" content="Glcyx的博客">
+<meta property="og:description" content="目标:了解深度学习算法基本原理 指你要懂常见深度学习算法最核心的思想，例如：  前向&#x2F;反向传播 梯度下降及其变种（SGD、Adam 等） 卷积、池化、注意力、RNN 等基本机制  不是要求你把数学推导到极致，但要能说明它们为何有效、怎么工作的。  熟悉神经网络基本架构及其算子计算方式  基本架构：CNN、RNN、Transformer、MLP 等 算子计算方式：卷积算子怎么计算、矩阵乘法">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251108210410019.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/1398e3b322dc0f4636b7bce6e7db1108.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251110210634937.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251112144025810.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251112152502650.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251112144732119.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251112161504706.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251112163923035.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251118154331884.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251113175105128.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251114103333094.png">
+<meta property="article:published_time" content="2026-04-06T08:16:44.000Z">
+<meta property="article:modified_time" content="2026-04-06T09:11:36.654Z">
+<meta property="article:author" content="Glcyx">
+<meta property="article:tag" content="AI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://glcyx.github.io/2026/04/06/AI/image-20251108210410019.png">
+
+<link rel="canonical" href="https://glcyx.github.io/2026/04/06/AI/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>深度学习入门 | Glcyx的博客</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?0df27ec3441ae8df38c4aca0b3fb2949";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Glcyx的博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录与思考</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/04/06/AI/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          深度学习入门
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-04-06 16:16:44 / 修改时间：17:11:36" itemprop="dateCreated datePublished" datetime="2026-04-06T16:16:44+08:00">2026-04-06</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="目标"><a href="#目标" class="headerlink" title="目标:"></a>目标:</h1><p><strong>了解深度学习算法基本原理</strong><br> 指你要懂常见深度学习算法最核心的思想，例如：</p>
+<ul>
+<li>前向&#x2F;反向传播</li>
+<li>梯度下降及其变种（SGD、Adam 等）</li>
+<li>卷积、池化、注意力、RNN 等基本机制<br>  不是要求你把数学推导到极致，但要能说明它们为何有效、怎么工作的。</li>
+</ul>
+<p><strong>熟悉神经网络基本架构及其算子计算方式</strong></p>
+<ul>
+<li>基本架构：CNN、RNN、Transformer、MLP 等</li>
+<li>算子计算方式：卷积算子怎么计算、矩阵乘法如何参与前向传播、激活函数怎么处理、LayerNorm&#x2F;BatchNorm怎样运作等<br>  重点是理解<strong>每个算子如何接收输入、如何计算、如何输出</strong>。</li>
+</ul>
+<p><strong>了解至少一种深度学习训练框架及其模型文件解析（如 PyTorch、TensorFlow）</strong></p>
+<ul>
+<li>会用 PyTorch 或 TensorFlow 做训练、推理</li>
+<li>知道模型文件（如 <code>.pt</code>、<code>.pth</code>、<code>.pb</code>、<code>saved_model</code>）里面大概包含什么：<br>  权重参数、模型结构、图信息等</li>
+<li>能够基本读取、保存、加载模型</li>
+<li>有时还要求你能解析模型计算图或理解 ONNX 导出流程。</li>
+</ul>
+<h1 id="机器学习入门"><a href="#机器学习入门" class="headerlink" title="机器学习入门"></a>机器学习入门</h1><h3 id="有监督学习"><a href="#有监督学习" class="headerlink" title="有监督学习:"></a>有监督学习:</h3><p>大致分为两类: 回归任务.分类任务</p>
+<p>回归: 结果是不确定的无限连续值,   比如:模型输出猫的体重是1.1kg,可能是1.2,1.3…..理论上精度无限,所以连续</p>
+<p>分类: 分类任务结果种类是固定的,比如说 输出结果是猪狗猫,模型会告诉你是这三个中的一种,不可能是牛</p>
+<h3 id="线性回归模型-回归任务，预测连续值"><a href="#线性回归模型-回归任务，预测连续值" class="headerlink" title="线性回归模型(回归任务，预测连续值)"></a>线性回归模型(回归任务，预测连续值)</h3><p>w权重,b偏置 </p>
+<p>误差(输出与真实值之间的差距)计算   设定误差函数 </p>
+<p>y &#x3D;wx+b  y:特征 w: 标签</p>
+<ol>
+<li><p>穷举法</p>
+</li>
+<li><p>最小二乘法, </p>
+</li>
+<li><p>梯度下降法    学习率(a),  三个中最优算法</p>
+</li>
+</ol>
+<p><img src="/2026/04/06/AI/image-20251108210410019.png" alt="img"> </p>
+<p>数据是否带标签然后输入到模型训练是有无监督学习的区别,有监督学习带标签</p>
+<h3 id="逻辑回归模型-分类任务，预测类别概率"><a href="#逻辑回归模型-分类任务，预测类别概率" class="headerlink" title="逻辑回归模型(分类任务，预测类别概率)"></a>逻辑回归模型(分类任务，预测类别概率)</h3><p>逻辑回归算法是二分类, 可以理解为利用回归的方法进行分类,</p>
+<p><code>sigmoid</code>函数:<br>$$<br>\sigma(x)&#x3D;z &#x3D; \frac{1}{1 + e^{-x}}<br>$$<br>导数:<br>$$<br>\sigma’(x) &#x3D; \sigma(x) \left(1 - \sigma(x)\right)<br>$$<br><img src="/2026/04/06/AI/1398e3b322dc0f4636b7bce6e7db1108.png" alt="img"></p>
+<p>我们将x转化为输入的数据特征,这个时候可以利用sigmoid函数对其进行映射,</p>
+<p>z&#x3D;w<sub>0</sub>x<sub>0</sub>+w<sub>1</sub>x<sub>1</sub>+…+w<sub>n</sub>x<sub>n</sub>  + b</p>
+<p>此时根据z值 靠近1或0 得到二分类结果,</p>
+<h4 id="评价指标"><a href="#评价指标" class="headerlink" title="评价指标:"></a>评价指标:</h4><p>分类模型评价指标: 准确率,精确率,召回率,F1值</p>
+<p>回归模型评价指标: 平均绝对误差,均方误差(loss值),均方根误差,MAPE(平均绝对百分比误差)    都大差不差</p>
+<h1 id="深度学习入门"><a href="#深度学习入门" class="headerlink" title="深度学习入门"></a>深度学习入门</h1><h2 id="全连接神经网络-fully-connected-neural-network-FCNN或MLP-multilayer-perception"><a href="#全连接神经网络-fully-connected-neural-network-FCNN或MLP-multilayer-perception" class="headerlink" title="全连接神经网络(fully connected neural network,FCNN或MLP:multilayer perception)"></a>全连接神经网络(fully connected neural network,FCNN或MLP:multilayer perception)</h2><p>最基础的神经网络结构,CNN,RNN,transformer可以看作其进化版</p>
+<p>整体结构:		<br>输入层-&gt; 隐藏层-&gt;输出层</p>
+<p><strong>神经元</strong>的数学表达式:</p>
+<p>$$<br>a &#x3D; h(wx + b)<br>$$</p>
+<p><code>h</code>是<strong>激活函数</strong>,激活函数让神经网络从线性变成非线性,打破每一层之间的线性关系,赋予网络<strong>非线性能力</strong></p>
+<p>例如前面所学的<code>sigmoid</code>函数就是一个激活函数</p>
+<p>每个神经元对应一个<code>b</code>,每个输入的<code>x</code> 对应一个参数<code>w</code>,</p>
+<p>所以这一层<strong>参数个数</strong>就是(<code>x</code>的数量乘上神经元数量) 再加上神经元的数量</p>
+<h3 id="激活函数"><a href="#激活函数" class="headerlink" title="激活函数"></a>激活函数</h3><p>sigmoid优点: 简单 非常适用分类任务</p>
+<p><strong>Tanh</strong>函数:<br>$$<br>\tanh(z) &#x3D; \frac{e^z - e^{-z}}{e^z + e^{-z}}<br>$$<br>导数</p>
+<p>$$<br>\tanh’(z) &#x3D; 1 - \tanh^2(z)<br>$$<br><strong>ReLU</strong>函数:<br>$$<br>f(x) &#x3D; \begin{cases} 0 &amp; \text{if } x &gt; 0 \ x &amp; \text{if } x \le 0 \end{cases}<br>$$</p>
+<p>$$<br>\frac{d}{dx}\operatorname{ReLU}(x)&#x3D;\begin{cases}1,&amp;x&gt;0\0,&amp;x\le0\end{cases}<br>$$</p>
+<p><img src="/2026/04/06/AI/image-20251110210634937.png" alt="img"></p>
+<p>优点: 解决了梯度消失(&gt;0情况下) ,计算更为简单</p>
+<p>缺点: 训练时可能出现神经元死亡(x&lt;0,导数为0,w和b不更新了)</p>
+<p><strong>Leaky ReLU</strong>函数:<br>$$<br>f(x) &#x3D; \begin{cases} 0 &amp; \text{if } x &gt; 0 \ ax &amp; \text{if } x \le 0 \end{cases}<br>$$<br>解决了神经元死亡问题</p>
+<h4 id="前向传播"><a href="#前向传播" class="headerlink" title="前向传播"></a>前向传播</h4><p> 从输入开始，经过一层层加权计算、非线性变换，最终得到输出结果</p>
+<p>也就是y&#x3D;model(x) ,输入x得到y的过程</p>
+<h3 id="神经网络的损失函数-loss"><a href="#神经网络的损失函数-loss" class="headerlink" title="神经网络的损失函数  loss"></a>神经网络的损失函数  loss</h3><p>… 有多种衡量标准</p>
+<p>比如; <img src="/2026/04/06/AI/image-20251112144025810.png" alt="img"></p>
+<p><code>f(x)</code> 就是关于w,b的函数嘛</p>
+<h4 id="反向传播"><a href="#反向传播" class="headerlink" title="反向传播"></a>反向传播</h4><p><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1e34y1M7wR/?spm_id_from=333.788.videopod.episodes&vd_source=f8d1f5518d3f58b48b5c428323f8d3bf&p=12">案例</a></p>
+<p>利用损失函数,通过链式法则，从输出层向前一层层计算每个参数的梯度，使得我们能知道如何更新参数以降低 loss。</p>
+<p><strong>梯度下降法</strong>是反向传播具体的一个实现过程   利用损失函数的导数来更新w,b</p>
+<blockquote>
+<p>所以前面导数为0,就会出现神经元死亡,w,b都不更新了怎么整</p>
+</blockquote>
+<p>梯度下降法参数更新公式: </p>
+<p><img src="/2026/04/06/AI/image-20251112152502650.png" alt="image-20251112152502650"></p>
+<p><code>a</code>就是学习率,根据其大小,调整<code>w</code>跨度,大了可能错失最小<code>w</code>,小了时间资源花费大</p>
+<p>本身w的导数就是一个二次函数,<img src="/2026/04/06/AI/image-20251112144732119.png" alt="img">其存在最小值 我们的目的就是尽可能地逐步更新<code>w</code> 然后找到他,这样 损失值就越来越小,与真实值差距就减少了,模型是不是就更准确了啊</p>
+<p><code>b</code>同理</p>
+<p>当然这里为什么是减去a*导数,因为导数是正的话,向右走,我们得减去他才能往山沟里(最低点)走啊,如果导数是负的,那就在中心线左边啊,那就是往左边走了,减去他才往右走</p>
+<h3 id="过拟合"><a href="#过拟合" class="headerlink" title="过拟合:"></a><strong>过拟合</strong>:</h3><p>模型的<strong>复杂度太高</strong>（参数太多或结构太灵活），导致它在训练数据上学习到了<strong>随机误差</strong>，而不是数据真正的统计规律。</p>
+<p>常见解决办法包括：</p>
+<ul>
+<li><strong>减少模型复杂度</strong>（比如浅一点的神经网络、少一点参数）</li>
+<li><strong>正则化（Regularization）</strong>，对模型参数加约束</li>
+<li><strong>数据增强</strong>或<strong>增加训练样本</strong></li>
+<li><strong>使用交叉验证</strong>选择合适的超参数</li>
+</ul>
+<h2 id="卷积神经网络-Convolutional-Neural-Network-CNN"><a href="#卷积神经网络-Convolutional-Neural-Network-CNN" class="headerlink" title="卷积神经网络(Convolutional Neural Network,CNN)"></a>卷积神经网络(Convolutional Neural Network,CNN)</h2><p><strong>全连接神经网络</strong>在图像数据输入时会破坏图像的特征,因为数据是一条一条的输入</p>
+<p>卷积运算后特征图大小:<img src="/2026/04/06/AI/image-20251112161504706.png" alt="img"></p>
+<p>H:高,W:宽,P:填充,FH:卷积核高,FW:… OH: 特征图高,OW:…</p>
+<p><strong>利用立体图来表示卷积多通道运算</strong>: </p>
+<p><img src="/2026/04/06/AI/image-20251112163923035.png" alt="img"></p>
+<p>卷积核的通道与输入通道数量相同(C), 输出特征图通道与卷积核数量相同(FN)</p>
+<h4 id="池化操作"><a href="#池化操作" class="headerlink" title="池化操作"></a>池化操作</h4><p><strong>压缩空间维度</strong></p>
+<p><strong>感受野</strong>: 类似于卷积核</p>
+<p>最大池化,平均池化 等..</p>
+<p>不会改变特征图的通道数,除非特殊操作</p>
+<h2 id="LeNet-LeNet-5"><a href="#LeNet-LeNet-5" class="headerlink" title="LeNet(LeNet-5)"></a>LeNet(LeNet-5)</h2><p>5代表这个网络里一共有五个含有参数的层</p>
+<p>这里两个卷积层,三个全连接层</p>
+<p><code>Flatten</code> : 展平操作,把图形展平为一条数据,方便与全连接层相连</p>
+<p>组合使用卷积层,sigmoid函数和全连接层</p>
+<p><img src="/2026/04/06/AI/image-20251118154331884.png" alt="image-20251118154331884"></p>
+<p>两块组合,然后展平交给全连接层,用来做分类或者回归</p>
+<h2 id="AlexNet"><a href="#AlexNet" class="headerlink" title="AlexNet"></a>AlexNet</h2><p><img src="/2026/04/06/AI/image-20251113175105128.png" alt="img"></p>
+<p>使用<code>ReLU</code> 作为激活函数替换了<code>sigmoid</code>或<code>tanh</code>函数,加快收敛,减少训练时间</p>
+<p>池化操作从平均池化改为最大池化</p>
+<h4 id="softmax"><a href="#softmax" class="headerlink" title="softmax:"></a>softmax:</h4><p>$$<br>\text{Softmax}(x_{i}) &#x3D; \frac{\exp(x_i)}{\sum_j \exp(x_j)}<br>$$</p>
+<p><code>softmax</code> 把一组任意实数转成一组像概率的数，让模型在多选一的场景里做出选择。</p>
+<p>后面全连接层的神经元个数4096等都是这个模型创建者自己设立的,你别管为什么是4096 反正他跟你说这个叼 </p>
+<p>当然最后一层看你最后分类数量,你要分类1000个那就是1000个神经元,你做二分类,那就是两个,你要识别数字,那就是10个</p>
+<h4 id="Dropout"><a href="#Dropout" class="headerlink" title="Dropout:"></a>Dropout:</h4><p>流程： </p>
+<p>(1)首先随机（临时）删掉网络中一半的隐藏 神经元，输入输出神经元保持不变（图中虚线为 部分临时被删除的神经元） </p>
+<p>(2) 然后把输入x通过修改后的网络前向传播， 然后把得到的损失结果通过修改的网络反向传播。 一小批训练样本执行完这个过程后，在没有被删 除的神经元上按照随机梯度下降法更新对应的参 数（w，b）。 </p>
+<p>(3) 然后继续重复这一过程</p>
+<ol>
+<li>加速训练</li>
+<li>防止某个参数过度训练(导致这个参数占比很高或低),减少过拟合</li>
+</ol>
+<h4 id="图像增强-增加图像数量-扩充数据集"><a href="#图像增强-增加图像数量-扩充数据集" class="headerlink" title="图像增强:(增加图像数量,扩充数据集)"></a>图像增强:(增加图像数量,扩充数据集)</h4><ol>
+<li>水平翻转</li>
+<li>随即裁剪</li>
+<li>PCA</li>
+</ol>
+<h4 id="LRN正则化-局部归一化"><a href="#LRN正则化-局部归一化" class="headerlink" title="LRN正则化(局部归一化):"></a>LRN正则化(局部归一化):</h4><p><img src="/2026/04/06/AI/image-20251114103333094.png" alt="image-20251114103333094"></p>
+<p>n为所选神经元前后通道的个数,没有则该值设为0</p>
+<h2 id="VGG"><a href="#VGG" class="headerlink" title="VGG"></a>VGG</h2>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/AI/" rel="tag"># AI</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/05/InlinerPass-cpp%E9%98%85%E8%AF%BB/" rel="prev" title="InlinerPass.cpp阅读">
+      <i class="fa fa-chevron-left"></i> InlinerPass.cpp阅读
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/04/08/Buddy-mlir%E4%BC%98%E5%8C%96%E9%A1%B9%E7%9B%AE/" rel="next" title="Buddy_mlir优化项目">
+      Buddy_mlir优化项目 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%9B%AE%E6%A0%87"><span class="nav-number">1.</span> <span class="nav-text">目标:</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E5%85%A5%E9%97%A8"><span class="nav-number">2.</span> <span class="nav-text">机器学习入门</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%89%E7%9B%91%E7%9D%A3%E5%AD%A6%E4%B9%A0"><span class="nav-number">2.1.</span> <span class="nav-text">有监督学习:</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92%E6%A8%A1%E5%9E%8B-%E5%9B%9E%E5%BD%92%E4%BB%BB%E5%8A%A1%EF%BC%8C%E9%A2%84%E6%B5%8B%E8%BF%9E%E7%BB%AD%E5%80%BC"><span class="nav-number">2.2.</span> <span class="nav-text">线性回归模型(回归任务，预测连续值)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E5%9B%9E%E5%BD%92%E6%A8%A1%E5%9E%8B-%E5%88%86%E7%B1%BB%E4%BB%BB%E5%8A%A1%EF%BC%8C%E9%A2%84%E6%B5%8B%E7%B1%BB%E5%88%AB%E6%A6%82%E7%8E%87"><span class="nav-number">2.3.</span> <span class="nav-text">逻辑回归模型(分类任务，预测类别概率)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AF%84%E4%BB%B7%E6%8C%87%E6%A0%87"><span class="nav-number">2.3.1.</span> <span class="nav-text">评价指标:</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E5%85%A5%E9%97%A8"><span class="nav-number">3.</span> <span class="nav-text">深度学习入门</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%A8%E8%BF%9E%E6%8E%A5%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C-fully-connected-neural-network-FCNN%E6%88%96MLP-multilayer-perception"><span class="nav-number">3.1.</span> <span class="nav-text">全连接神经网络(fully connected neural network,FCNN或MLP:multilayer perception)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0"><span class="nav-number">3.1.1.</span> <span class="nav-text">激活函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%89%8D%E5%90%91%E4%BC%A0%E6%92%AD"><span class="nav-number">3.1.1.1.</span> <span class="nav-text">前向传播</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C%E7%9A%84%E6%8D%9F%E5%A4%B1%E5%87%BD%E6%95%B0-loss"><span class="nav-number">3.1.2.</span> <span class="nav-text">神经网络的损失函数  loss</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%8D%E5%90%91%E4%BC%A0%E6%92%AD"><span class="nav-number">3.1.2.1.</span> <span class="nav-text">反向传播</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%87%E6%8B%9F%E5%90%88"><span class="nav-number">3.1.3.</span> <span class="nav-text">过拟合:</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%B7%E7%A7%AF%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C-Convolutional-Neural-Network-CNN"><span class="nav-number">3.2.</span> <span class="nav-text">卷积神经网络(Convolutional Neural Network,CNN)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%B1%A0%E5%8C%96%E6%93%8D%E4%BD%9C"><span class="nav-number">3.2.1.</span> <span class="nav-text">池化操作</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LeNet-LeNet-5"><span class="nav-number">3.3.</span> <span class="nav-text">LeNet(LeNet-5)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AlexNet"><span class="nav-number">3.4.</span> <span class="nav-text">AlexNet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#softmax"><span class="nav-number">3.4.1.</span> <span class="nav-text">softmax:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Dropout"><span class="nav-number">3.4.2.</span> <span class="nav-text">Dropout:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9B%BE%E5%83%8F%E5%A2%9E%E5%BC%BA-%E5%A2%9E%E5%8A%A0%E5%9B%BE%E5%83%8F%E6%95%B0%E9%87%8F-%E6%89%A9%E5%85%85%E6%95%B0%E6%8D%AE%E9%9B%86"><span class="nav-number">3.4.3.</span> <span class="nav-text">图像增强:(增加图像数量,扩充数据集)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LRN%E6%AD%A3%E5%88%99%E5%8C%96-%E5%B1%80%E9%83%A8%E5%BD%92%E4%B8%80%E5%8C%96"><span class="nav-number">3.4.4.</span> <span class="nav-text">LRN正则化(局部归一化):</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#VGG"><span class="nav-number">3.5.</span> <span class="nav-text">VGG</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Glcyx"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Glcyx</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glcyx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glcyx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/884478769@qq.com" title="E-Mail → 884478769@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glcyx</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
+
+<script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+          load: ['[tex]/mhchem'],
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+          packages: {'[+]': ['mhchem']},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+    
+
+  
+
+</body>
+</html>

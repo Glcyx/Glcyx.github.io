@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"glcyx.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","width":250,"display":"post","padding":13,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="AOT(ahead of time):在运行前,将中间代码或源代码提前编译成目标机器码  编译时间发生在程序安装部署阶段 生成的二进制文件可直接在目标平台上运行,无需额外编译 对平台依赖明确,性能要求稳定 典型语言&#x2F;场景: C,C++,Rust,Go  JIT(just in time):在程序运行时,将中间代码动态编译为机器码  编译发生在程序执行过程中 可以基于运行时信息进行优化 高">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LLVM IR">
+<meta property="og:url" content="https://glcyx.github.io/2026/01/22/LLVM-IR/index.html">
+<meta property="og:site_name" content="Glcyx的博客">
+<meta property="og:description" content="AOT(ahead of time):在运行前,将中间代码或源代码提前编译成目标机器码  编译时间发生在程序安装部署阶段 生成的二进制文件可直接在目标平台上运行,无需额外编译 对平台依赖明确,性能要求稳定 典型语言&#x2F;场景: C,C++,Rust,Go  JIT(just in time):在程序运行时,将中间代码动态编译为机器码  编译发生在程序执行过程中 可以基于运行时信息进行优化 高">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/22/LLVM-IR/image-20260303160202120.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/22/LLVM-IR/v2-86952e01f491ae9f2b2cb4c166722f46_1440w.webp">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/22/LLVM-IR/for.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/22/LLVM-IR/for-1773804687302-2.png">
+<meta property="article:published_time" content="2026-01-22T09:07:39.000Z">
+<meta property="article:modified_time" content="2026-04-06T09:10:13.625Z">
+<meta property="article:author" content="Glcyx">
+<meta property="article:tag" content="IR">
+<meta property="article:tag" content="LLVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://glcyx.github.io/2026/01/22/LLVM-IR/image-20260303160202120.png">
+
+<link rel="canonical" href="https://glcyx.github.io/2026/01/22/LLVM-IR/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>LLVM IR | Glcyx的博客</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?0df27ec3441ae8df38c4aca0b3fb2949";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Glcyx的博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录与思考</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/01/22/LLVM-IR/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          LLVM IR
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-01-22 17:07:39" itemprop="dateCreated datePublished" datetime="2026-01-22T17:07:39+08:00">2026-01-22</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-06 17:10:13" itemprop="dateModified" datetime="2026-04-06T17:10:13+08:00">2026-04-06</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p><strong>AOT</strong>(ahead of time):在运行前,将中间代码或源代码提前编译成目标机器码</p>
+<ul>
+<li>编译时间发生在程序安装部署阶段</li>
+<li>生成的二进制文件可直接在目标平台上运行,无需额外编译</li>
+<li>对平台依赖明确,性能要求稳定</li>
+<li>典型语言&#x2F;场景: C,C++,Rust,Go</li>
+</ul>
+<p><strong>JIT</strong>(just in time):在程序运行时,将中间代码动态编译为机器码</p>
+<ul>
+<li>编译发生在程序执行过程中</li>
+<li>可以基于运行时信息进行优化</li>
+<li>高级语言运行时环境,需要跨平台,动态优化</li>
+<li>典型语言&#x2F;场景: Java,C#.JavaScript</li>
+</ul>
+<p><strong>Pass</strong>:对源程序进行一次完整的扫描或处理</p>
+<p><strong>IR</strong>:中间表示 </p>
+<p>现存常见传统编译器:gcc(gnu compiler collection),llvm,msvc(微软的,集成在vs)</p>
+<h4 id="GCC"><a href="#GCC" class="headerlink" title="GCC:"></a><strong>GCC</strong>:</h4><p>可移植,交叉编译</p>
+<p>编译流程: </p>
+<p>预处理: 宏定义,文件包含,条件编译 形成 .i文件,然后编译成汇编语言,</p>
+<p>汇编成机器语言</p>
+<p>缺点: 耦合度高 难以集成</p>
+<h2 id="LLVM"><a href="#LLVM" class="headerlink" title="LLVM:"></a>LLVM:</h2><p>高度模块化,更灵活,提高代码复用</p>
+<p>clang 是llvm的前端 将代码转化为LLVM IR交给LLVM后端优化和目标代码生成</p>
+<p><strong>LLVM IR</strong>:</p>
+<p>在不同的编译阶段,可能是不同的数据结构</p>
+<p>SSA(Static single assignment,静态单赋值形式):每个变量在程序中只能被赋值一次</p>
+<ul>
+<li>三地址指令序列</li>
+<li>寄存器数量无限制</li>
+<li>提高了优化效率，简化了许多优化过程</li>
+</ul>
+<p>词法分析-&gt;语法分析-&gt;语义分析-&gt;生成IR	</p>
+<p><img src="/2026/01/22/LLVM-IR/image-20260303160202120.png" alt="img"></p>
+<p>LLVM IR抽象级别太低，无法针对特定领域或者语言优化，因而各个语言框架有自己的IR和优化实现，无法重用</p>
+<p><strong>当前的IR存在的问题</strong>:</p>
+<ol>
+<li>IR的种类太多,对不同IR开发的Pass可能重复,因为不同IR的Pass不兼容,写新IR的同类Pass要重新学IR的语法,门槛开销大(也就是相同类型Pass我还得再学遍新IR语法规范再写 很麻烦)</li>
+<li>不同IR做的Pass优化下一层不可见,可能导致优化重复,效率偏低</li>
+<li>不同IR之间转化开销大</li>
+</ol>
+<h1 id="LLVM-IR入门"><a href="#LLVM-IR入门" class="headerlink" title="LLVM IR入门"></a>LLVM IR入门</h1><p>LLVM IR有两种形式：</p>
+<ul>
+<li><strong>文本形式（.ll）</strong> → 人类可读</li>
+<li><strong>二进制 bitcode（.bc）</strong> → 编译器使用</li>
+</ul>
+<h2 id="数据表示"><a href="#数据表示" class="headerlink" title="数据表示"></a>数据表示</h2><p>堆(heap)上的数据不能独自存在,因为一定有一个位于其他位置(寄存器,栈,数据区,或者另一个分配在堆上的指针)的引用,所以程序中用来表示数据的一共有三类</p>
+<ul>
+<li>寄存器</li>
+<li>栈</li>
+<li>数据区</li>
+</ul>
+<h2 id="数据区与符号表"><a href="#数据区与符号表" class="headerlink" title="数据区与符号表"></a>数据区与符号表</h2><p>有些平台对数据有细分,例如linux的数据格式有<code>.rodate</code>来存储只读数据,而llvm面向多平台,所以对数据的定义也是越细致越好,依据各个平台数据的特征,若支持相应的特性,可以针对做优化</p>
+<p><strong>LLVM IR</strong>中全局变量名称都需要用<code>@</code>开头</p>
+<p>LLVM IR对全局变量: </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@global_variabal  = global i32 0</span><br></pre></td></tr></table></figure>
+
+<p>只读的全局变量,也就是常量:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@global_constant = constant i32 0</span><br></pre></td></tr></table></figure>
+
+<h3 id="符号与符号表"><a href="#符号与符号表" class="headerlink" title="符号与符号表"></a>符号与符号表</h3><p>在编译器编译一个目标单元,但不知道源代码中调用其他文件的函数在哪时,会用一个符号代替,在未来链接和动态链接的时候进行替换</p>
+<ol>
+<li>编译器对源代码按文件进行编译,对于文件中的未知函数记录其符号;对于文件中实现的函数,暴露其符号</li>
+<li>链接器收集所有目标文件,对于每个文件记录下的符号与其他文件暴露的符号做对比,找到匹配的就是成功解析(resolve)</li>
+<li>部分符号在程序加载执行时由动态链接库提供,动态链接器将在这些阶段进行类似的符号解析</li>
+</ol>
+<p>然而一个项目可能会出现重名的符号,因为符号也就是一个字符串</p>
+<p>LLVM IR为了解决这些问题,提供了Linkage Type和Visibility Styles这两个修饰符以及<strong>链接</strong>与<strong>可见性</strong>这两个概念</p>
+<p>在linux中可以用<code>nm</code>命令查看可执行文件的符号表</p>
+<h4 id="链接类型"><a href="#链接类型" class="headerlink" title="链接类型"></a>链接类型</h4><p>常分为什么都不加(默认为<code>external</code>),<code>private</code>和<code>internal</code></p>
+<p>external: 直接将全局变量名字放入符号表,链接时暴露给其他编译单元</p>
+<p>private：这个变量名将不会在符号表中出现</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@global_variabal = private global i32 0</span><br></pre></td></tr></table></figure>
+
+<p>internal: 该变量以局部符号身份出现,可在符号表中出现,内部可见,能被文件内其他函数和全局变量访问,但不参与符号解析,也就是不能暴露给链接器</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@global_variabal = private global i32 0</span><br></pre></td></tr></table></figure>
+
+<h4 id="可见性"><a href="#可见性" class="headerlink" title="可见性"></a>可见性</h4><p>主要分为<code>default</code>,<code>hidden</code> 和<code>protected</code>,</p>
+<p>default的符号可被重载,protected不可以,hidden不将变量放在动态符号表中,其他模块不可直接引用</p>
+<h4 id="可抢占性"><a href="#可抢占性" class="headerlink" title="可抢占性"></a>可抢占性</h4><p><code>dso_local</code>:运行时抢占性修饰符, 告诉链接器,该符号不许抢占,生成动态链接库时直接调用,不去PLT(Procedure Linkage Table，过程链接表)寻找</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> a; <span class="comment">// 定义在当前文件中的全局变量，别的文件也可以使用这个符号</span></span><br><span class="line"><span class="keyword">extern</span> <span class="type">int</span> b;<span class="comment">// 定义在别的文件中的全局变量，当前文件需要使用这个符号</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> c;<span class="comment">//定义在当前文件中的全局变量，别的文件不可以使用这个符号</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">d</span><span class="params">()</span>;<span class="comment">//定义在别的文件中的函数，当前文件需要使用这个符号</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">e</span><span class="params">()</span>&#123;&#125;;<span class="comment">//定义在当前文件中的函数，别的文件也可以使用这个符号</span></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">f</span><span class="params">()</span>&#123;&#125;;<span class="comment">//定义在当前文件中的函数，别的文件不可以使用这个符号</span></span><br></pre></td></tr></table></figure>
+
+<p>在llvm ir中表示为</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">@a = dso_local global i32 0, align 4</span><br><span class="line">@b = external global i32, align 4</span><br><span class="line">@c = internal global i32 0, align 4</span><br><span class="line"></span><br><span class="line">declare void @d()</span><br><span class="line"></span><br><span class="line">//加上dso_local保证不会被抢占</span><br><span class="line">define dso_local void @e() &#123; </span><br><span class="line">  ret void</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">define internal void @f() &#123;</span><br><span class="line">  ret void</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="寄存器和栈"><a href="#寄存器和栈" class="headerlink" title="寄存器和栈"></a>寄存器和栈</h2><blockquote>
+<p><strong>Caller-Saved Registers</strong>（调用者保存寄存器）：调用者负责保存这些寄存器的值，因为被调用者可能会修改它们。如果调用者在调用函数之前希望保留这些寄存器的值，它们就需要在调用前显式地保存。</p>
+<p>rax, rcx, rdx, rsi, rdi, r8 到 r11通常被认为是caller-saved</p>
+<p><strong>Callee-Saved Registers</strong>（被调用者保存寄存器）：被调用者负责保存这些寄存器的值，因为它们在被调用的函数中可能会被修改。在返回调用者之前，函数必须恢复这些寄存器。</p>
+<p>x86-64架构下<code>rbx</code>, <code>rbp</code>, <code>r12</code> 到 <code>r15</code>被认为是callee-saved。</p>
+</blockquote>
+<h3 id="寄存器"><a href="#寄存器" class="headerlink" title="寄存器"></a>寄存器</h3><p><strong>对于寄存器来说,名字以<code>%</code>开头</strong> </p>
+<p>虚拟寄存器是一种概念,当 <strong>LLVM IR</strong> 被转换成目标平台的机器码时，这些虚拟寄存器会被映射到具体的 <strong>物理寄存器</strong> 或 <strong>栈空间</strong>。</p>
+<p>这个过程称为 <strong>寄存器分配:</strong> </p>
+<ul>
+<li>当寄存器比较少时,直接使用caller-saved  register </li>
+<li>当caller-saved不够用,将callee-saved register原来数值压栈,然后使用(此时llvm ir是被调用方)</li>
+<li>全都用光就把虚拟寄存器剩下的值压栈,</li>
+</ul>
+<h3 id="栈"><a href="#栈" class="headerlink" title="栈"></a>栈</h3><p>LLVM IR对栈的使用十分简单，直接使用<code>alloca</code>指令即可。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%ptr = alloca &lt;type&gt;, [size] [, align]</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>&lt;type&gt;</code></strong>：要分配内存的类型，比如 <code>i32</code>、<code>i8</code>、结构体类型等。</p>
+<p><strong><code>[size]</code></strong>：可选，表示分配内存的数量（如果是数组类型的话）。如果是单个变量，通常不需要指定。</p>
+<p><strong><code>align</code></strong>：可选，指定分配的内存对齐方式。通常<strong>默认</strong>是按类型的对齐方式来进行。</p>
+<p>如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%1 = alloca i32, align 4</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="数据的使用"><a href="#数据的使用" class="headerlink" title="数据的使用"></a>数据的使用</h2><h3 id="全局变量和栈上变量都是指针"><a href="#全局变量和栈上变量都是指针" class="headerlink" title="全局变量和栈上变量都是指针"></a>全局变量和栈上变量都是指针</h3><p>LLVM IR把这两个变量都看作<code>ptr</code>指针,实际指向一个<code>i32</code>大小的区域,使用<code>store</code>和<code>load</code>操作</p>
+<p>e.g: 获取一个全局变量的值, 将一个<code>ptr</code>指针:<code>@global_variable</code>赋值给虚拟寄存器<code>%1</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%1 = load i32,ptr @global_variable</span><br></pre></td></tr></table></figure>
+
+<p>如果要将值存储到全局变量或者栈上就要用<code>store</code>命令</p>
+<p>将寄存器<code>%1</code>内 <code>i32</code>类型的内的值赋给<code>ptr</code>类型的全局变量<code>@global_variable</code>所指的内存中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">store i32 %1,ptr @global_variable</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="SSA-static-single-assignment"><a href="#SSA-static-single-assignment" class="headerlink" title="SSA(static single assignment)"></a>SSA(static single assignment)</h3><p>每个变量只能被赋值一次,比如对<code>%1</code>同时赋值两次是不被允许的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%1 = add i32 1, 2</span><br><span class="line">%1 = add i32 3, 4</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="类型系统"><a href="#类型系统" class="headerlink" title="类型系统"></a>类型系统</h2><p>LLVM IR是<strong>强类型</strong>的</p>
+<h3 id="基本的数据类型"><a href="#基本的数据类型" class="headerlink" title="基本的数据类型"></a>基本的数据类型</h3><ul>
+<li>空类型(void)</li>
+<li>整形(iN):i1(True or False),i8,i16,i32,i64…</li>
+<li>浮点型(float,double)</li>
+</ul>
+<h4 id="符号"><a href="#符号" class="headerlink" title="符号"></a>符号</h4><blockquote>
+<p><strong>无符号数</strong>：无符号整数只是简单地把二进制表示当作一个正整数来理解，所有的位都表示大小。无符号数不能表示负数</p>
+<p><strong>最高位</strong>（即最左边的那一位）表示符号, 八位二进制取值范围是 -128<code>到</code>127</p>
+<p><strong>反码</strong> : 原码除去标志位(最高位)取反</p>
+<p><strong>补码</strong>: 计算机内数字都用补码表示 正数补码等于原码,负数补码等于自身绝对值二进制取反(反码)再加一   </p>
+<p>可得: 补码 &#x3D; 反码+1,  原码 &#x3D; 反码(补码-1)再取反</p>
+<p>e.g: 5的二进制为<code>0000 0101</code>(假设为八位二进制),补码是<code>0000 0101</code></p>
+<p>​	-5的原码<code>1000 0101</code> 反码<code>1111 1010</code> 补码<code>1111 1011</code></p>
+</blockquote>
+<p>LLVM IR中,整形<strong>默认有符号</strong>,默认将数字以补码的形式赋值给<code>iN</code>类型的变量, 而整形的有无符号体现在<strong>操作指令</strong>而非类型上</p>
+<p>比如对于整形除法,提供了<code>udiv</code>和<code>sdiv</code>两种分别用于无符号整型和有符号整型除法</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">%1 = udiv i8 -6,2  ;-6的补码是1111 1010也就是250  (1111 1010)/2 = 125, %1 = 125</span><br><span class="line">%2 = udiv i8 6, 2  ;3,</span><br><span class="line">%3 = sdiv i8 -6,2  ;(-3) 把-6当作有符号数 结果就是-3</span><br><span class="line">%4 = sdiv i8 7, 2  ;有符号整数除法，但由于它们是正数，结果与普通的整数除法相同  7/2 =3</span><br></pre></td></tr></table></figure>
+
+<p>LLVM IR中的整型默认按有符号补码存储，但一个变量究竟是否要被看作有无符号数需要看其参与的指令。</p>
+<h4 id="转换指令"><a href="#转换指令" class="headerlink" title="转换指令"></a>转换指令</h4><p>LLVM IR提供三种转换指令:<code>trunc .. to</code> <code>zext .. to</code>  <code>sext .. to</code>   </p>
+<p>长整型转换为短整型, 把高位去除,使用<code>trunc.. to</code>指令 (truncate: 去掉尾部 截掉 )</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%trunc_intenger = trunc i32 257 to i8 ;trunc 32 bit ...1 0000 0001 to 8 bit 0000 0001, get 1</span><br></pre></td></tr></table></figure>
+
+<p>而补码中最高位是符号位 短整型转化为长整型稍微困难一点</p>
+<p>零扩展<code>zext .. to</code>(zero extension)和符号扩展<code>sext .. to</code>(sign extension)</p>
+<p>零扩展就是高位直接加零,,符号拓展用原数的符号位进行填充</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%zext_integer = zext i8 -1 to i32 ; Extend 8 bit 0xFF to 32 bit 0x000000FF, get 255</span><br><span class="line">%sext_integer = sext i8 -1 to i32 ; Extend 8 bit 0xFF to 32 bit 0xFFFFFFFF, get -1</span><br></pre></td></tr></table></figure>
+
+
+
+<p>浮点型的数和整型的数也可以相互转换，使用<code>fptoui .. to</code>, <code>fptosi .. to</code>, <code>uitofp .. to</code>, <code>sitofp .. to</code>,可以分别将浮点数转换为无符号、有符号整型，将无符号、有符号整型转换为浮点数</p>
+<h3 id="指针类型"><a href="#指针类型" class="headerlink" title="指针类型"></a>指针类型</h3><blockquote>
+<p><img src="/2026/01/22/LLVM-IR/v2-86952e01f491ae9f2b2cb4c166722f46_1440w.webp" alt="img"></p>
+<p>x86中 栈的使用是从高地址到低地址的 所以下面先后声明x,y 那么x比y的地址高一个字节 所以x的地址减去一个字节得到y的地址</p>
+</blockquote>
+<p>LLVM IR指针类型就是<code>ptr</code>, 为了让指针能够加减,提供了<code>ptrtoint</code> .. <code>to</code>指令和<code>inttoptr</code> .. <code>to</code>指令，分别解决将指针转换为整型，和将整型转换为指针的功能</p>
+<p>e.g:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">int x=1, y=2;</span><br><span class="line">size_t address_of_x = (size_t)&amp;x; //得到x的地址</span><br><span class="line">size_t address_of_y = address_of_x - sizeof(int);//x地址减去一个字节大小</span><br><span class="line">int also_y = *(int *)address_of_y;  //将y地址转化为指针类型 再引用得到y的数值</span><br><span class="line"></span><br><span class="line">%x = alloca i32 ; %x is of type ptr, which is the address of variable x</span><br><span class="line">%y = alloca i32 ; %y is of type ptr, which is the address of variable y</span><br><span class="line">%address_of_x = ptrtoint ptr %x to i64</span><br><span class="line">%address_of_y = sub i64 %address_of_x, 4</span><br><span class="line">%also_y = inttoptr i64 %address_of_y to ptr ; %also_y is of type ptr, which is the address of variable y</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="聚合类型"><a href="#聚合类型" class="headerlink" title="聚合类型"></a>聚合类型</h3><p>常见的数组,结构体 LLVM IR也提供了相应支持:</p>
+<p><strong>数组</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">@global_array = global [4 x i32] [i32 0, i32 1, i32 2, i32 3] ;对数字进行初始化</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>ps: [4 x i32] 是字母<code>x</code> 不是乘号<code>*</code></p>
+</blockquote>
+<p><strong>字符串</strong>可以看成是字符数组</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">@global_string = global [12 x i8] c&quot;Hello world\00&quot;</span><br><span class="line">;在字符串中，转义字符必须以\xy的形式出现，其中xy是这个转义字符的ASCII码。比如说，字符串的结尾，C语言中的\0，在LLVM IR中就表现为\00。</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>LLVM IR</strong> 中的转义字符是以十六进制表示的</p>
+</blockquote>
+<p><strong>结构体</strong>:</p>
+<p>定义:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">;c</span><br><span class="line">struct MyStruct&#123;</span><br><span class="line">	int x;</span><br><span class="line">	char y;</span><br><span class="line">&#125;</span><br><span class="line">;LLVM IR</span><br><span class="line">%MyStruct = type &#123;</span><br><span class="line">    i32,</span><br><span class="line">    i8</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>初始化结构体:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">@global_structure = global %MyStruct &#123;i32 1,i8 0&#125;</span><br><span class="line">;or</span><br><span class="line">@global_structure = global &#123;i32, i8&#125; &#123;i32 1,i8 0&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>无论是结构体还是数组 作为全局变量或者栈上变量依旧是指针,即<code>@global_array</code> <code>@global_struct</code>都是<code>ptr</code>类型</p>
+<p>当我们要对 一个聚合类型中的数据进行操作,我们要分清这个数据是指针还是值,也就是说以全局变量和栈形式存储 还是以起存其的形式存储</p>
+<h4 id="getelementptr"><a href="#getelementptr" class="headerlink" title="getelementptr"></a>getelementptr</h4><h5 id="访问数组元素字段"><a href="#访问数组元素字段" class="headerlink" title="访问数组元素字段"></a>访问数组元素字段</h5><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">;c</span><br><span class="line">struct MyStruct &#123;</span><br><span class="line">    int x;</span><br><span class="line">    int y;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">void foo(struct MyStruct *my_structs_ptr) &#123;</span><br><span class="line">    //取第三个结构体 获取y元素 </span><br><span class="line">    int my_y = my_structs_ptr[2].y; // (*(my_struct_ptr+2)).y ,在数组中偏移量为2</span><br><span class="line">    </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">;LLVM IR</span><br><span class="line">%MyStruct = type &#123; i32, i32 &#125;</span><br><span class="line"></span><br><span class="line">define void @foo(ptr %my_structs_ptr) &#123;</span><br><span class="line">    %my_y_in_stack = alloca i32  ;存储元素的地址</span><br><span class="line">    %my_y_ptr = getelementptr %MyStruct, ptr %my_structs_ptr, i64 2, i32 1   </span><br><span class="line">    %my_y_val = load i32, ptr %my_y_ptr</span><br><span class="line">    store i32 %my_y_val, ptr %my_y_in_stack</span><br><span class="line">    ret void</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>foo函数接收指向<code>struct MyStruct</code> 类型的指针的参数  实际上指向了一个数组</p>
+<ul>
+<li>%MyStruct是我们要获取地址的指针 指向的区域类型  要操作的指针是%my_structs_ptr</li>
+<li><code>i64  2</code>: 取<strong>偏移量</strong>为2的元素 <code>my_struct_ptr[2]</code></li>
+<li><code>i32 1</code>:  获取索引为1 的元素 也就是<code>my_structs_ptr[2].y</code></li>
+</ul>
+<h5 id="访问指针字段"><a href="#访问指针字段" class="headerlink" title="访问指针字段"></a>访问指针字段</h5><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">;c</span><br><span class="line">struct MyStruct &#123;</span><br><span class="line">    int x;</span><br><span class="line">    int y;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">void foo(struct MyStruct *my_structs_ptr) &#123;</span><br><span class="line">    int my_y = my_structs_ptr-&gt;y;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">;LLVM IR</span><br><span class="line">%MyStruct = type&#123;i32,i32&#125;</span><br><span class="line"></span><br><span class="line">define void @foo(ptr %my_struct_ptr)&#123;</span><br><span class="line">	%my_y_in_stack = alloca i32</span><br><span class="line">	%my_y_ptr = getelementptr %MyStruct ,ptr %my_struct_ptr,i64 0, i32 1</span><br><span class="line">	%my_y_val = load i32, ptr %my_y_ptr</span><br><span class="line">    store i32 %my_y_val, ptr %my_y_in_stack</span><br><span class="line">    ret void</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>我们发现即使把<code>%my_struct_ptr</code>看作是指向结构体的指针 我们还是要加一个偏移量0 </p>
+<p>这是因为在c语言中,对于一个数组<code>array</code>,  指向首元素的<code>array_ptr</code>和<code>&amp;array[0]</code>是同一个东西 为了兼容这一点,LLVM IR在GEP(getelementptr)中,将所有指针都看作是指向数组首地址的指针,因此我们家一个<code>i64 0</code> 解决</p>
+<h5 id="级联访问"><a href="#级联访问" class="headerlink" title="级联访问"></a>级联访问</h5><p>GEP还可以接收多个参数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">;c</span><br><span class="line">struct MyStruct &#123;</span><br><span class="line">    int x;</span><br><span class="line">    int y[5];</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct MyStruct my_structs[4];</span><br><span class="line"></span><br><span class="line">;LLVM IR</span><br><span class="line">%MyStruct = type &#123;</span><br><span class="line">    i32,</span><br><span class="line">    [5 x i32]</span><br><span class="line">&#125;</span><br><span class="line">%my_structs = alloca [4 x %MyStruct]</span><br><span class="line">;获得my_structs[2].y[3]</span><br><span class="line">%1 = getelementptr %MyStruct, ptr %my_structs, i64 2, i32 1, i64 3  </span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="extractvalue和insertvalue"><a href="#extractvalue和insertvalue" class="headerlink" title="extractvalue和insertvalue"></a><code>extractvalue</code>和<code>insertvalue</code></h3><p>除了将结构体存储到栈(alloca)或全局变量(global)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">%MyStruct = type &#123;</span><br><span class="line">    i32,</span><br><span class="line">    i32</span><br><span class="line">&#125;</span><br><span class="line">@my_struct = global %MyStruct &#123; i32 1, i32 2 &#125;</span><br><span class="line"></span><br><span class="line">define i32 @main() &#123;</span><br><span class="line">    %1 = load %MyStruct, ptr @my_struct</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里我们把结构体直接存入虚拟寄存器<code>%1</code>中,就不能用GEP操作<code>%1</code>了,</p>
+<p><strong>extractvalue</strong> 获取<code>@my_struct</code>第二字段的数值</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%2 = extractvalue %MyStruct %1, 1 </span><br></pre></td></tr></table></figure>
+
+<p><strong>insertvalue</strong> 赋值</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">%3 = insertvalue %MyStruct %1, i32 233, 1</span><br></pre></td></tr></table></figure>
+
+<p>%3 就是更改了数值后的值</p>
+<p>这两个操作还适用于存在虚拟寄存器中的数组 </p>
+<h3 id="元数据类型"><a href="#元数据类型" class="headerlink" title="元数据类型"></a>元数据类型</h3><p>在LLVM IR中 以<code>!</code>开头的标识符为元数据 :为了将额外的信息附加在程序中传递给LLVM后端,利于优化或生成代码</p>
+<h3 id="属性"><a href="#属性" class="headerlink" title="属性"></a>属性</h3><p>不是某种类型,一般用于函数,提供函数级别的优化指令,控制代码生成.  影响编译器的优化策略以及函数的生成行为</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">define void @foo() nounwind &#123;</span><br><span class="line">    ; ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>nounwind</code>就是一个属性 不会触发异常</p>
+<p>一个函数可以有多个属性,而有些函数可能会有相同的属性,LLVM IR引入了<strong>属性组</strong> 的概念</p>
+<p>e.g:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">attributes #<span class="number">0</span> = &#123; </span><br><span class="line">    noinline          ; 不进行内联扩展</span><br><span class="line">    nounwind          ; 不会触发异常</span><br><span class="line">    optnone           ; 不进行任何优化</span><br><span class="line">    ssp                ; 启用栈保护</span><br><span class="line">    uwtable           ; 使用表驱动的异常处理</span><br><span class="line">    <span class="string">&quot;correctly-rounded-divide-sqrt-fp-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 禁止进行“正确舍入”的浮点除法和开方运算</span><br><span class="line">    <span class="string">&quot;darwin-stkchk-strong-link&quot;</span> ; 强链接符号检查（特定于 Darwin/OSX）</span><br><span class="line">    <span class="string">&quot;disable-tail-calls&quot;</span>=<span class="string">&quot;false&quot;</span> ; 禁用尾调用优化</span><br><span class="line">    <span class="string">&quot;frame-pointer&quot;</span>=<span class="string">&quot;all&quot;</span> ; 保持所有函数的帧指针</span><br><span class="line">    <span class="string">&quot;less-precise-fpmad&quot;</span>=<span class="string">&quot;false&quot;</span> ; 禁止降低浮点乘加的精度</span><br><span class="line">    <span class="string">&quot;min-legal-vector-width&quot;</span>=<span class="string">&quot;0&quot;</span> ; 最小合法向量宽度</span><br><span class="line">    <span class="string">&quot;no-infs-fp-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 允许无穷大值的浮点运算</span><br><span class="line">    <span class="string">&quot;no-jump-tables&quot;</span>=<span class="string">&quot;false&quot;</span> ; 允许使用跳转表</span><br><span class="line">    <span class="string">&quot;no-nans-fp-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 允许在浮点运算中使用 NaN（非数值）</span><br><span class="line">    <span class="string">&quot;no-signed-zeros-fp-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 允许有符号零的浮点运算</span><br><span class="line">    <span class="string">&quot;no-trapping-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 允许陷阱数学（例如，除以零）</span><br><span class="line">    <span class="string">&quot;probe-stack&quot;</span>=<span class="string">&quot;___chkstk_darwin&quot;</span> ; 堆栈检查（特定于Darwin）</span><br><span class="line">    <span class="string">&quot;stack-protector-buffer-size&quot;</span>=<span class="string">&quot;8&quot;</span> ; 启用堆栈保护，缓冲区大小为<span class="number">8</span>字节</span><br><span class="line">    <span class="string">&quot;target-cpu&quot;</span>=<span class="string">&quot;penryn&quot;</span> ; 指定目标 CPU 类型为 Penryn（Intel 处理器架构）</span><br><span class="line">    <span class="string">&quot;target-features&quot;</span>=<span class="string">&quot;+cx16,+cx8,+fxsr,+mmx,+sahf,+sse,+sse2,+sse3,+sse4.1,+ssse3,+x87&quot;</span> ; 启用特定的 CPU 特性</span><br><span class="line">    <span class="string">&quot;unsafe-fp-math&quot;</span>=<span class="string">&quot;false&quot;</span> ; 禁用不安全的浮点数学</span><br><span class="line">    <span class="string">&quot;use-soft-float&quot;</span>=<span class="string">&quot;false&quot;</span> ; 禁用软件浮点支持</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以在编译时使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">clang -O2 -Xclang -disable-llvm-optzns -target-cpu penryn test.c -o <span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>或者直接使用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">define void @foo #0 &#123;</span><br><span class="line">    ; ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="控制流"><a href="#控制流" class="headerlink" title="控制流"></a>控制流</h2><p>程序执行指令的顺序,可以通过<code>if</code> <code>while</code> <code>for</code>等语句变化</p>
+<blockquote>
+<p>数据流: 指一个程序中的数据，从硬盘到内存，从内存到寄存器，等等一系列的数据搬运、处理的过程。</p>
+</blockquote>
+<h3 id="汇编层面控制语句"><a href="#汇编层面控制语句" class="headerlink" title="汇编层面控制语句"></a>汇编层面控制语句</h3><h4 id="if-else"><a href="#if-else" class="headerlink" title="if..else"></a><code>if..else</code></h4><p>伪代码:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">    Compare a and b</span><br><span class="line">    Jump to label B if comparison is a is not greater than b // conditional jump</span><br><span class="line">label A:</span><br><span class="line">    Do something A</span><br><span class="line">    Jump to label C // unconditional jump</span><br><span class="line">label B:</span><br><span class="line">    Do something B</span><br><span class="line">label C:</span><br><span class="line">    Do something C</span><br></pre></td></tr></table></figure>
+
+<p><code>for</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">    Compare a and b</span><br><span class="line">    Jump to label B if comparison is a is not greater than b // conditional jump</span><br><span class="line">label A:</span><br><span class="line">    Do something A</span><br><span class="line">    Jump to label C // unconditional jump</span><br><span class="line">label B:</span><br><span class="line">    Do something B</span><br><span class="line">label C:</span><br><span class="line">    Do something C</span><br></pre></td></tr></table></figure>
+
+<p>其他的大同小异</p>
+<p>我们可以得出大多数控制语句需要四要素:</p>
+<ul>
+<li>标签</li>
+<li>无条件跳转</li>
+<li>大小比较的指令</li>
+<li>条件跳转</li>
+</ul>
+<h3 id="LLVM-IR层面的控制语句"><a href="#LLVM-IR层面的控制语句" class="headerlink" title="LLVM  IR层面的控制语句"></a>LLVM  IR层面的控制语句</h3><h4 id="标签"><a href="#标签" class="headerlink" title="标签"></a>标签</h4><p>与汇编一致,LLVM IR中的标签也以<code>:</code>结尾做标记,</p>
+<h4 id="比较指令"><a href="#比较指令" class="headerlink" title="比较指令"></a>比较指令</h4><p>LLVM IR提供的比较指令是<code>imp</code>接收三个参数:比较反感 两个比较参数</p>
+<p><code>imp</code>返回一个类型为<code>i1</code>的值也就是<code>bool</code>,只有true 即为1,或者false即为0 两种数值</p>
+<p>比较方案:</p>
+<ul>
+<li><code>eq</code>和<code>ne</code>(equal,no equal) 相等和不相等</li>
+<li>无符号比较,<code>ugt</code>,<code>uge</code>,<code>ult</code>,<code>ule</code>,分表代表大于(unsigned greater),大于等于(unsigned greater or equal),小于(unsigned less than),小于等于(unsigned less than or equal)</li>
+</ul>
+<blockquote>
+<p>我们在之前讨论加减法的时候说过,LLVM IR中整形变量本身符号不重要,要看参与的指令将其看作什么符号,这里u就是看作无符号</p>
+</blockquote>
+<ul>
+<li>有符号比较:<code>sgt</code>,<code>sge</code>,<code>slt</code>,<code>sle</code></li>
+</ul>
+<h4 id="条件跳转"><a href="#条件跳转" class="headerlink" title="条件跳转"></a>条件跳转</h4><p>比较完后 就要跳转 LLVM IR提供的跳转指令是<code>br</code>,接受三个参数</p>
+<p><code>i1</code>类型(bool,T or F) 用作判断,剩下两个是标签,分表为<code>i1</code>类型为 <code>true</code> 和<code>false</code>跳转的标签,e.g:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">br i1 %comparison_result, label %A, label %B</span><br></pre></td></tr></table></figure>
+
+<h4 id="无条件跳转"><a href="#无条件跳转" class="headerlink" title="无条件跳转"></a>无条件跳转</h4><p>无需条件 直接跳转 还是用<code>br</code>指令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">br label %start</span><br></pre></td></tr></table></figure>
+
+<p>我们可以给出</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">    %i = alloca i32                               ; int i = ...</span><br><span class="line">    store i32 0, ptr %i                           ; ... = 0</span><br><span class="line">start:</span><br><span class="line">    %i_value = load i32, ptr %i</span><br><span class="line">    %comparison_result = icmp slt i32 %i_value, 4 ; Test if i &lt; 4</span><br><span class="line">    br i1 %comparison_result, label %A, label %B</span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    %1 = add i32 %i_value, 1                      ; ... = i + 1</span><br><span class="line">    store i32 %1, ptr %i                          ; i = ...</span><br><span class="line">    br label %start</span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>但是编译<strong>不能通过</strong>有感觉吗</p>
+<h4 id="BasicBlock"><a href="#BasicBlock" class="headerlink" title="BasicBlock"></a>BasicBlock</h4><ul>
+<li>一个函数由许多基本块(Basic block)组成</li>
+<li>每个基本块包含：<ul>
+<li>开头的标签（可省略,显式或隐式）</li>
+<li>一系列指令</li>
+<li>结尾是终结指令(改变执行顺序的指令,如 跳转或返回)</li>
+</ul>
+</li>
+<li>一个基本块没有标签时，会自动赋给它一个标签</li>
+</ul>
+<p>至此 对照上边的代码 我们发现开头的代码块没有终结指令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%i = alloca i32       </span><br><span class="line">store i32 0, ptr %i</span><br></pre></td></tr></table></figure>
+
+<p>加上后就好了:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">    %i = alloca i32                               ; int i = ...</span><br><span class="line">    store i32 0, ptr %i                           ; ... = 0</span><br><span class="line">    br label %start</span><br><span class="line">start:</span><br><span class="line">    %i_value = load i32, ptr %i</span><br><span class="line">    %comparison_result = icmp slt i32 %i_value, 4 ; Test if i &lt; 4</span><br><span class="line">    br i1 %comparison_result, label %A, label %B</span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    %1 = add i32 %i_value, 1                      ; ... = i + 1</span><br><span class="line">    store i32 %1, ptr %i                          ; i = ...</span><br><span class="line">    br label %start</span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>我们可能会有疑问,这里对<code>%1</code>是不是重复赋值,违反了SSA原则呢,其实不然,SSA是静态单赋值,在代码中,<code>%1</code>确实也只在等号左边出现了一次,就没有违反SSA,至于程序运行时这个代码被运行多次,那是<strong>运行时的动态行为</strong></p>
+</blockquote>
+<p>而经过实验我们发现:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">define i32 @main() &#123;</span><br><span class="line">    %i = alloca i32                               ; int i = ...</span><br><span class="line">    store i32 0, ptr %i                           ; ... = 0</span><br><span class="line">    br label %start</span><br><span class="line">start:</span><br><span class="line">    %i_value = load i32, ptr %i</span><br><span class="line">    %comparison_result = icmp slt i32 %i_value, 4 ; Test if i &lt; 4</span><br><span class="line">    br i1 %comparison_result, label %A, label %B</span><br><span class="line"></span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    %1= add i32 %i_value, 1                      ; ... = i + 1</span><br><span class="line">    store i32 %1, ptr %i                          ; i = ...</span><br><span class="line">    br label %start</span><br><span class="line"></span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上述代码可以编译,而如果为第一个匿名代码块加入了一个显式标签<code>entry:</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">define i32 @main() &#123;</span><br><span class="line">entry:</span><br><span class="line">    %i = alloca i32                               ; int i = ...</span><br><span class="line">    store i32 0, ptr %i                           ; ... = 0</span><br><span class="line">    br label %start</span><br><span class="line"></span><br><span class="line">start:</span><br><span class="line">    %i_value = load i32, ptr %i</span><br><span class="line">    %comparison_result = icmp slt i32 %i_value, 4 ; Test if i &lt; 4</span><br><span class="line">    br i1 %comparison_result, label %A, label %B</span><br><span class="line"></span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    %1= add i32 %i_value, 1                      ; ... = i + 1</span><br><span class="line">    store i32 %1, ptr %i                          ; i = ...</span><br><span class="line">    br label %start</span><br><span class="line"></span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>就会报错:</p>
+<figure class="highlight bat"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">llc: <span class="title">error</span>: <span class="title">llc</span>: <span class="title">test.ll</span>:13:5: <span class="title">error</span>: <span class="title">instruction</span> <span class="title">expected</span> <span class="title">to</span> <span class="title">be</span> <span class="title">numbered</span> &#x27;%0&#x27;</span></span><br><span class="line"><span class="function">    %1= <span class="title">add</span> <span class="title">i32</span> %<span class="title">i_value</span>, 1                      ; ... = <span class="title">i</span> + 1</span></span><br></pre></td></tr></table></figure>
+
+<p>为什么呢?</p>
+<blockquote>
+<p> 为了保证每一行代码都有址可寻，LLVM 会给所有“没起名字”的对象自动发一个数字编号,LLVM 的匿名变量计数器是从 0 开始的，而“显式命名的标签”不占用这个计数器的名额,没有标签的代码块为匿名基本块</p>
+</blockquote>
+<p>所以在第一个代码块没有<code>enetry</code>标签的时候,编译器自动为其分配了一个匿名变量编号<code>%0</code>,后面只能用<code>%1</code>,如果有<code>entry</code>标签,我们第一个使用的虚拟寄存器必须是<code>%0</code>,从0开始,可以通过下面的代码验证得到</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">define i32 @main() &#123;</span><br><span class="line">    %i = alloca i32                               ; int i = ...</span><br><span class="line">    store i32 0, ptr %i                           ; ... = 0</span><br><span class="line">    br label %start							   ;第一个匿名代码块 占用%0</span><br><span class="line">    </span><br><span class="line">    br label %start   	                          ;第二个匿名代码块 占用%1</span><br><span class="line">start:</span><br><span class="line">    %i_value = load i32, ptr %i</span><br><span class="line">    %comparison_result = icmp slt i32 %i_value, 4 ; Test if i &lt; 4</span><br><span class="line">    br i1 %comparison_result, label %A, label %B</span><br><span class="line"></span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    %2= add i32 %i_value, 1                       ;这里使用%2 </span><br><span class="line">    store i32 %2, ptr %i                          ; i = ...</span><br><span class="line">    br label %start</span><br><span class="line"></span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>start</code>标签前面有两个匿名代码块,所以我们第一个使用的虚拟寄存器就要从<code>%2</code>开始</p>
+<h4 id="可视化"><a href="#可视化" class="headerlink" title="可视化"></a>可视化</h4><p>LLVM的工具链甚至为我们提供了可视化控制语句的方法。我们使用之前提到的LLVM工具链中用于优化的<code>opt</code>工具：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">opt -p dot-cfg test.ll</span><br></pre></td></tr></table></figure>
+
+<p>利用Graphviz可以生成可视化控制流图(CFG):</p>
+<p><img src="/2026/01/22/LLVM-IR/for.png" alt="img"></p>
+<p><img src="/2026/01/22/LLVM-IR/for-1773804687302-2.png" alt="img"></p>
+<p>查看CFG可以更清楚看到,LLVM 扫描器将数字<code>%0</code>分配给了匿名代码块</p>
+<h4 id="switch"><a href="#switch" class="headerlink" title="switch"></a>switch</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">;c</span><br><span class="line">int x;</span><br><span class="line">switch (x) &#123;</span><br><span class="line">    case 0:</span><br><span class="line">        // do something A</span><br><span class="line">        break;</span><br><span class="line">    case 1:</span><br><span class="line">        // do something B</span><br><span class="line">        break;</span><br><span class="line">    default:</span><br><span class="line">        // do something C</span><br><span class="line">        break;</span><br><span class="line">&#125;</span><br><span class="line">// do something else</span><br><span class="line"></span><br><span class="line">;LLVM IR</span><br><span class="line">switch i32 %x, label %C [</span><br><span class="line">    i32 0, label %A</span><br><span class="line">    i32 1, label %B</span><br><span class="line">]</span><br><span class="line">A:</span><br><span class="line">    ; Do something A</span><br><span class="line">    br label %end</span><br><span class="line">B:</span><br><span class="line">    ; Do something B</span><br><span class="line">    br label %end</span><br><span class="line">C:</span><br><span class="line">    ; Do something C</span><br><span class="line">    br label %end</span><br><span class="line">end:</span><br><span class="line">    ; Do something else</span><br></pre></td></tr></table></figure>
+
+<p><code>i32 %x</code>中<code>x</code>用来判断,<code>label %C</code>是<code>default</code>分支</p>
+<p>LLVM后端对<code>switch</code>语句有两种处理方式</p>
+<ol>
+<li><strong>条件语句实现</strong></li>
+</ol>
+<p>伪代码表示就是</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (x == <span class="number">0</span>) &#123;</span><br><span class="line">    Jump to label %A</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (x == <span class="number">1</span>) &#123;</span><br><span class="line">    Jump to label %B</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    Jump to label %C</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>然而查找效率是O(n)</p>
+<ol start="2">
+<li><strong>跳转表</strong></li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">labels = [label %A, label %B]</span><br><span class="line"><span class="keyword">if</span> (x &lt; <span class="number">0</span> || x &gt; <span class="number">1</span>) &#123;</span><br><span class="line">    Jump to label %C</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    Jump to labels[x]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>利用内存中数组索引为O(1),根据目前<code>x</code>值跳转具体地址</p>
+<p>根据目标平台和<code>switch</code>分支数,LLVM后端会选择不同的实现方式</p>
+<h4 id="select"><a href="#select" class="headerlink" title="select"></a>select</h4><p><code>select</code>接收三个参数,第一个参数用来判断<code>bool</code>值(<code>i1</code>类型的<code>icmp</code>结果),结果为<code>true</code>返回第二个参数,<code>false</code>返回第三个参数.  </p>
+<blockquote>
+<p>跟三目运算符 <code>: ?</code>很像啊</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">define void @foo(i32 %x) &#123;</span><br><span class="line">    %result = icmp sgt i32 %x, 0</span><br><span class="line">    %y = select i1 %result, i32 1, i32 2  ; x为T返回1,否则返回2</span><br><span class="line">    ; Do something with %y</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="phi"><a href="#phi" class="headerlink" title="phi"></a>phi</h4><p><code>select</code>只能根据<code>i1</code>,支持<code>T</code> or <code>F</code>两种情况,而<code>phi</code>牛逼多了,它能根据控制流判断</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">define void @foo(i32 %x) &#123;</span><br><span class="line">    %result = icmp sgt i32 %x, 0</span><br><span class="line">    br i1 %result, label %btrue, label %bfalse</span><br><span class="line">btrue:</span><br><span class="line">    br label %end</span><br><span class="line">bfalse:</span><br><span class="line">    br label %end</span><br><span class="line">end:</span><br><span class="line">    %y = phi i32 [1, %btrue], [2, %bfalse]</span><br><span class="line">    ; Do something with %y</span><br><span class="line">    ret void</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>phi</code>第一个参数是类型,表示其返回类型为<code>i32</code>,接下来是数组,如果当前basic block执行时,前一个基本块是<code>%btrue</code>,那么返回1,第二个数组表示前一个基本块是<code>%bfalse</code>,那么返回2</p>
+<p>也就还是说<code>phi</code>根据前一个基本块决定返回值,并且数组没有数量要求,支持多分支赋值</p>
+<h2 id="函数"><a href="#函数" class="headerlink" title="函数"></a>函数</h2><h3 id="定义与声明"><a href="#定义与声明" class="headerlink" title="定义与声明"></a>定义与声明</h3><h4 id="函数定义"><a href="#函数定义" class="headerlink" title="函数定义"></a>函数定义</h4><p>我们之前也见过</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">define i32 @foo(i32 %a, i64 %b) &#123;</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>基本的函数由<code>i32</code>返回值,<code>@foo</code>函数名,参数列表(懒得打了),函数体<code>ret i32 0</code>构成</p>
+<p>函数名开头也是<code>@</code>,与全局变量一样,所以函数也有<code>Linkage Types</code>和<code>Visibility Style</code>来控制函数名在符号表中出现情况</p>
+<h5 id="属性-1"><a href="#属性-1" class="headerlink" title="属性"></a>属性</h5><p>我们可以在参数列表后面加上属性,当属性比较少的时候,可以直接写在后面,或者以属性组的形式 都是可以的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">define void @foo() nounwind &#123; ret void &#125;</span><br><span class="line">; or</span><br><span class="line">define void @foo() #0 &#123; ret void &#125;</span><br><span class="line">attributes #0 &#123;</span><br><span class="line">    nounwind ; ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="函数声明"><a href="#函数声明" class="headerlink" title="函数声明"></a>函数声明</h4><p>在一个编译单元使用其他模块的函数,就要在本模块先声明,才能使得不出错,在链接时正确将声明函数与其所在模块下的定义相链接</p>
+<p>声明只需要把<code>define</code>替换为<code>declare</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">declare i32 @printf(i8*,...) #1</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="函数的调用"><a href="#函数的调用" class="headerlink" title="函数的调用"></a>函数的调用</h3><p>使用<code>call</code>指令 ,可以直接调用函数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">define i32 @foo(i32 %a) &#123;</span><br><span class="line">    ; ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">define void @bar() &#123;</span><br><span class="line">    %1 = call i32 @foo(i32 1)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="传参与获得返回值"><a href="#传参与获得返回值" class="headerlink" title="传参与获得返回值"></a>传参与获得返回值</h4><h5 id="c调用约定"><a href="#c调用约定" class="headerlink" title="c调用约定"></a>c调用约定</h5><blockquote>
+<p>关于<strong>System V</strong>可以理解为操作系统一些列操作规范和标准,涉及OS的设计,ABI(应用二进制接口,application binary interface),函数调用约定(calling convention),进程间通信等等</p>
+<p>AMD64下,C调用约定遵循System V 调用约定(System V Calling Convention)</p>
+<p><strong>参数传递</strong>：</p>
+<ul>
+<li>前六个整数参数通过寄存器传递，具体是：<ul>
+<li><code>rdi</code>：第一个参数</li>
+<li><code>rsi</code>：第二个参数</li>
+<li><code>rdx</code>：第三个参数</li>
+<li><code>rcx</code>：第四个参数</li>
+<li><code>r8</code>：第五个参数</li>
+<li><code>r9</code>：第六个参数</li>
+</ul>
+</li>
+<li>如果有更多的参数（超过六个），它们会被压入栈中，从右到左的顺序。</li>
+</ul>
+<p><strong>返回值</strong>：</p>
+<ul>
+<li>如果函数只有一个返回值，通常它会通过寄存器 <code>rax</code> 返回。如果返回值是结构体或多个值，返回值会传递给调用者分配的内存空间或使用特定的寄存器。</li>
+</ul>
+</blockquote>
+<p>我们可以做个实验</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">; calling_convention_test.ll</span><br><span class="line">%ReturnType = type &#123; i32, i32 &#125;</span><br><span class="line">define %ReturnType @foo(i32 %a1, i32 %a2, i32 %a3, i32 %a4, i32 %a5, i32 %a6, i32 %a7, i32 %a8) &#123;</span><br><span class="line">    ret %ReturnType &#123; i32 1, i32 2 &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">define i32 @main() &#123;</span><br><span class="line">    %1 = call %ReturnType @foo(i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8)</span><br><span class="line">    ret i32 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里<code>%ReturnType</code>参数超过六个,返回值有两个,经过编译得到的<code>.s</code>文件主要部分如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">foo:                                    # @foo</span><br><span class="line">        .cfi_startproc</span><br><span class="line"># %bb.0:</span><br><span class="line">        movl    $1, %eax</span><br><span class="line">        movl    $2, %edx</span><br><span class="line">        retq</span><br><span class="line"></span><br><span class="line">main:                                   # @main</span><br><span class="line">        .cfi_startproc</span><br><span class="line"># %bb.0:</span><br><span class="line">        pushq   %rax</span><br><span class="line">        .cfi_def_cfa_offset 16</span><br><span class="line">        movl    $1, %edi</span><br><span class="line">        movl    $2, %esi</span><br><span class="line">        movl    $3, %edx</span><br><span class="line">        movl    $4, %ecx</span><br><span class="line">        movl    $5, %r8d</span><br><span class="line">        movl    $6, %r9d</span><br><span class="line">        pushq   $8</span><br><span class="line">        .cfi_adjust_cfa_offset 8</span><br><span class="line">        pushq   $7</span><br><span class="line">        .cfi_adjust_cfa_offset 8</span><br><span class="line">        callq   foo@PLT</span><br></pre></td></tr></table></figure>
+
+<p>可以看见 前面六个参数按顺序存入,第七第八个参数是从右往左,先push $8,在push $7</p>
+<p>而<code>foo</code>函数,返回值按顺序先mov $1,再mov $2</p>
+<p><strong>为何要这么设计呢?</strong></p>
+<blockquote>
+<p>妈的 查了下资料 好处太多了 无非是优化,利于维护,兼容什么的,下面举个简单例子</p>
+</blockquote>
+<p>该调用约定最大特点就是当寄存器不够时,将剩余参数<strong>从右往左</strong>压栈,实现高级语言可变参数的特性<br>e.g:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">printf</span>(<span class="string">&quot;%d %d %d %d&quot;</span>,a,b,c,d);</span><br></pre></td></tr></table></figure>
+
+<p>忽略存入寄存器的参数,我们从<code>d</code>开始从右往左压栈,那么栈顶往下就是从格式字符串<code>%d</code>开始,把<code>%d</code>读完就确定还需要读几个参数,如果从左往右压栈,栈顶从<code>d</code>开始读,不确认要读几个参数</p>
+<h3 id="可视化-1"><a href="#可视化-1" class="headerlink" title="可视化"></a>可视化</h3><p>与CFG相似,我们可以利用LLVM工具链,获取函数调用图(Call Graph)<br>哎我草 ,llvm 14好像没有<code>dot-callgraph</code>这个pass,拉到</p>
+<h2 id="内置函数-属性和元数据"><a href="#内置函数-属性和元数据" class="headerlink" title="内置函数,属性和元数据"></a>内置函数,属性和元数据</h2><h3 id="内置函数"><a href="#内置函数" class="headerlink" title="内置函数"></a>内置函数</h3><h3 id="属性-2"><a href="#属性-2" class="headerlink" title="属性"></a>属性</h3><p>函数属性的使用可以让编译器理解函数的行为，进而进行更好的优化。比如，标记函数为 <code>readonly</code> 可以告诉编译器该函数不会修改任何全局变量或内存，从而进行更多的优化。</p>
+<h3 id="元数据"><a href="#元数据" class="headerlink" title="元数据"></a>元数据</h3><p>元数据是 LLVM IR 中的附加信息，它本身不会影响代码的执行。元数据常用于存储一些调试信息、源代码位置、循环信息等。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/LLVM/" rel="tag"># LLVM</a>
+              <a href="/tags/IR/" rel="tag"># IR</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/01/03/VSCode%E8%BF%9E%E7%BB%93WSL2%E5%BC%80%E5%8F%91CUDA/" rel="prev" title="VSCode连结WSL2开发CUDA">
+      <i class="fa fa-chevron-left"></i> VSCode连结WSL2开发CUDA
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/" rel="next" title="CUDA笔记">
+      CUDA笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#GCC"><span class="nav-number">1.</span> <span class="nav-text">GCC:</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LLVM"><span class="nav-number">2.</span> <span class="nav-text">LLVM:</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#LLVM-IR%E5%85%A5%E9%97%A8"><span class="nav-number">3.</span> <span class="nav-text">LLVM IR入门</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E8%A1%A8%E7%A4%BA"><span class="nav-number">3.1.</span> <span class="nav-text">数据表示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%8C%BA%E4%B8%8E%E7%AC%A6%E5%8F%B7%E8%A1%A8"><span class="nav-number">3.2.</span> <span class="nav-text">数据区与符号表</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%A6%E5%8F%B7%E4%B8%8E%E7%AC%A6%E5%8F%B7%E8%A1%A8"><span class="nav-number">3.2.1.</span> <span class="nav-text">符号与符号表</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%93%BE%E6%8E%A5%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.2.1.1.</span> <span class="nav-text">链接类型</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%AF%E8%A7%81%E6%80%A7"><span class="nav-number">3.2.1.2.</span> <span class="nav-text">可见性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%AF%E6%8A%A2%E5%8D%A0%E6%80%A7"><span class="nav-number">3.2.1.3.</span> <span class="nav-text">可抢占性</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%84%E5%AD%98%E5%99%A8%E5%92%8C%E6%A0%88"><span class="nav-number">3.3.</span> <span class="nav-text">寄存器和栈</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">3.3.1.</span> <span class="nav-text">寄存器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%88"><span class="nav-number">3.3.2.</span> <span class="nav-text">栈</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">3.4.</span> <span class="nav-text">数据的使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%A8%E5%B1%80%E5%8F%98%E9%87%8F%E5%92%8C%E6%A0%88%E4%B8%8A%E5%8F%98%E9%87%8F%E9%83%BD%E6%98%AF%E6%8C%87%E9%92%88"><span class="nav-number">3.4.1.</span> <span class="nav-text">全局变量和栈上变量都是指针</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SSA-static-single-assignment"><span class="nav-number">3.4.2.</span> <span class="nav-text">SSA(static single assignment)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B1%BB%E5%9E%8B%E7%B3%BB%E7%BB%9F"><span class="nav-number">3.5.</span> <span class="nav-text">类型系统</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E7%9A%84%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.5.1.</span> <span class="nav-text">基本的数据类型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AC%A6%E5%8F%B7"><span class="nav-number">3.5.1.1.</span> <span class="nav-text">符号</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%BD%AC%E6%8D%A2%E6%8C%87%E4%BB%A4"><span class="nav-number">3.5.1.2.</span> <span class="nav-text">转换指令</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8C%87%E9%92%88%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.5.2.</span> <span class="nav-text">指针类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%81%9A%E5%90%88%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.5.3.</span> <span class="nav-text">聚合类型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#getelementptr"><span class="nav-number">3.5.3.1.</span> <span class="nav-text">getelementptr</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%AE%BF%E9%97%AE%E6%95%B0%E7%BB%84%E5%85%83%E7%B4%A0%E5%AD%97%E6%AE%B5"><span class="nav-number">3.5.3.1.1.</span> <span class="nav-text">访问数组元素字段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E8%AE%BF%E9%97%AE%E6%8C%87%E9%92%88%E5%AD%97%E6%AE%B5"><span class="nav-number">3.5.3.1.2.</span> <span class="nav-text">访问指针字段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E7%BA%A7%E8%81%94%E8%AE%BF%E9%97%AE"><span class="nav-number">3.5.3.1.3.</span> <span class="nav-text">级联访问</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#extractvalue%E5%92%8Cinsertvalue"><span class="nav-number">3.5.4.</span> <span class="nav-text">extractvalue和insertvalue</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.5.5.</span> <span class="nav-text">元数据类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B1%9E%E6%80%A7"><span class="nav-number">3.5.6.</span> <span class="nav-text">属性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%A7%E5%88%B6%E6%B5%81"><span class="nav-number">3.6.</span> <span class="nav-text">控制流</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B1%87%E7%BC%96%E5%B1%82%E9%9D%A2%E6%8E%A7%E5%88%B6%E8%AF%AD%E5%8F%A5"><span class="nav-number">3.6.1.</span> <span class="nav-text">汇编层面控制语句</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#if-else"><span class="nav-number">3.6.1.1.</span> <span class="nav-text">if..else</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LLVM-IR%E5%B1%82%E9%9D%A2%E7%9A%84%E6%8E%A7%E5%88%B6%E8%AF%AD%E5%8F%A5"><span class="nav-number">3.6.2.</span> <span class="nav-text">LLVM  IR层面的控制语句</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%A0%87%E7%AD%BE"><span class="nav-number">3.6.2.1.</span> <span class="nav-text">标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%AF%94%E8%BE%83%E6%8C%87%E4%BB%A4"><span class="nav-number">3.6.2.2.</span> <span class="nav-text">比较指令</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9D%A1%E4%BB%B6%E8%B7%B3%E8%BD%AC"><span class="nav-number">3.6.2.3.</span> <span class="nav-text">条件跳转</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%97%A0%E6%9D%A1%E4%BB%B6%E8%B7%B3%E8%BD%AC"><span class="nav-number">3.6.2.4.</span> <span class="nav-text">无条件跳转</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#BasicBlock"><span class="nav-number">3.6.2.5.</span> <span class="nav-text">BasicBlock</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%AF%E8%A7%86%E5%8C%96"><span class="nav-number">3.6.2.6.</span> <span class="nav-text">可视化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#switch"><span class="nav-number">3.6.2.7.</span> <span class="nav-text">switch</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#select"><span class="nav-number">3.6.2.8.</span> <span class="nav-text">select</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#phi"><span class="nav-number">3.6.2.9.</span> <span class="nav-text">phi</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%87%BD%E6%95%B0"><span class="nav-number">3.7.</span> <span class="nav-text">函数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9A%E4%B9%89%E4%B8%8E%E5%A3%B0%E6%98%8E"><span class="nav-number">3.7.1.</span> <span class="nav-text">定义与声明</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%AE%9A%E4%B9%89"><span class="nav-number">3.7.1.1.</span> <span class="nav-text">函数定义</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%B1%9E%E6%80%A7-1"><span class="nav-number">3.7.1.1.1.</span> <span class="nav-text">属性</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%A3%B0%E6%98%8E"><span class="nav-number">3.7.1.2.</span> <span class="nav-text">函数声明</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E7%9A%84%E8%B0%83%E7%94%A8"><span class="nav-number">3.7.2.</span> <span class="nav-text">函数的调用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BC%A0%E5%8F%82%E4%B8%8E%E8%8E%B7%E5%BE%97%E8%BF%94%E5%9B%9E%E5%80%BC"><span class="nav-number">3.7.2.1.</span> <span class="nav-text">传参与获得返回值</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#c%E8%B0%83%E7%94%A8%E7%BA%A6%E5%AE%9A"><span class="nav-number">3.7.2.1.1.</span> <span class="nav-text">c调用约定</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E8%A7%86%E5%8C%96-1"><span class="nav-number">3.7.3.</span> <span class="nav-text">可视化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E7%BD%AE%E5%87%BD%E6%95%B0-%E5%B1%9E%E6%80%A7%E5%92%8C%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">3.8.</span> <span class="nav-text">内置函数,属性和元数据</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E7%BD%AE%E5%87%BD%E6%95%B0"><span class="nav-number">3.8.1.</span> <span class="nav-text">内置函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B1%9E%E6%80%A7-2"><span class="nav-number">3.8.2.</span> <span class="nav-text">属性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">3.8.3.</span> <span class="nav-text">元数据</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Glcyx"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Glcyx</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glcyx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glcyx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/884478769@qq.com" title="E-Mail → 884478769@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glcyx</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
+
+<script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+          load: ['[tex]/mhchem'],
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+          packages: {'[+]': ['mhchem']},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+    
+
+  
+
+</body>
+</html>

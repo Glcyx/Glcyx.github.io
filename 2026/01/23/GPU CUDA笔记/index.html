@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"glcyx.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","width":250,"display":"post","padding":13,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="异构编程模型,需要cpu,gpu共通过参与 cpu执行复杂逻辑计算,gpu执行大量简单逻辑计算 host指代CPU及其内存，而用device指代GPU及其内存 __global__: host调用, device上运行,返回类型void __device__: device上调用并运行,不可与__global__同时使用 __host__: host上调用并运行,不可与__global__同时使用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CUDA笔记">
+<meta property="og:url" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Glcyx的博客">
+<meta property="og:description" content="异构编程模型,需要cpu,gpu共通过参与 cpu执行复杂逻辑计算,gpu执行大量简单逻辑计算 host指代CPU及其内存，而用device指代GPU及其内存 __global__: host调用, device上运行,返回类型void __device__: device上调用并运行,不可与__global__同时使用 __host__: host上调用并运行,不可与__global__同时使用">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/3_24.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/3_26-1763983420595-3.png">
+<meta property="og:image" content="https://glcyx.github.io/image-20251126194009620.png">
+<meta property="og:image" content="https://glcyx.github.io/4-4-1.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/4-4-2.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/image-20251127213111581.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/5-12.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/1-1.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/1-2.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/1-4.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/6-2.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/6-3.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/image-20260104160838742.png">
+<meta property="og:image" content="https://glcyx.github.io/v2-879a4f32a145fa813537265111086835_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/v2-d08a348be17445373b320a2a2dd3d171_r.jpg">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/image-20260108202526732.png">
+<meta property="og:image" content="e:\%E6%A1%8C%E9%9D%A2\%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0\cuda.assets\v2-9904d182fb4224dfec02638e3e0db481_1440w.jpg">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/4C892D369BB1B52FEDBE31CD51A61D39.png">
+<meta property="og:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/v2-ed428f66b3aa034fc117c5e3d76476e1_1440w.jpg">
+<meta property="article:published_time" content="2026-01-23T04:04:28.000Z">
+<meta property="article:modified_time" content="2026-04-06T08:16:31.731Z">
+<meta property="article:author" content="Glcyx">
+<meta property="article:tag" content="CUDA">
+<meta property="article:tag" content="GPU">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/3_24.png">
+
+<link rel="canonical" href="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>CUDA笔记 | Glcyx的博客</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?0df27ec3441ae8df38c4aca0b3fb2949";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Glcyx的博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录与思考</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/01/23/GPU%20CUDA%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CUDA笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-01-23 12:04:28" itemprop="dateCreated datePublished" datetime="2026-01-23T12:04:28+08:00">2026-01-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-06 16:16:31" itemprop="dateModified" datetime="2026-04-06T16:16:31+08:00">2026-04-06</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>异构编程模型,需要cpu,gpu共通过参与</p>
+<p>cpu执行复杂逻辑计算,gpu执行大量简单逻辑计算</p>
+<p>host指代CPU及其内存，而用device指代GPU及其内存</p>
+<p><code>__global__</code>: <code>host</code>调用, <code>device</code>上运行,返回类型<code>void</code></p>
+<p><code>__device__</code>: <code>device</code>上调用并运行,不可与<code>__global__</code>同时使用</p>
+<p><code>__host__</code>: <code>host</code>上调用并运行,不可与<code>__global__</code>同时使用</p>
+<p>一个<code>kernel</code>启动一个<code>grid</code> ,里面的线程共享同一个全局内存空间,里面包含许多线程块(block)</p>
+<p><strong>流式多处理器</strong>(SM,Streaming Multiprocessor):<br>SM可以调度多个<code>block</code>,一个<code>block</code>只能由一个SM调度,</p>
+<p>所以<code>grid</code>只是逻辑层面上的划分,SM是执行的物理层</p>
+<p><strong>SIMT</strong>(single-instruction,multiple-thread,单指令 多线程)</p>
+<h3 id="warp与Block"><a href="#warp与Block" class="headerlink" title="warp与Block:"></a>warp与Block:</h3><p>线程束(warp)是SM中的基本执行单元,但一个网格(grid)被启动,也就是一个内核(kernel)启动,grid里的block被分配到不同的SM上,分为若干个warp,一般是32个thread为一个warp,对于一个warp里的thread来说,锁步(lock-step)执行相同的指令,但是处理的数据为私有的数据</p>
+<p>GPU 性能由*<em>资源分配（寄存器&#x2F;共享内存&#x2F;PC）*<em>决定可同时活跃的线程束数量，进而影响延迟隐藏、吞吐量与占用率</em></em>；调优即在资源与并行度之间找到平衡以最大化硬件利用率。<br>当寄存器和共享内存分配给了线程块，这个线程块处于活跃状态，所包含的线程束称为活跃线程束。<br><strong>活跃线程束</strong>又分为三类：</p>
+<ul>
+<li>选定的线程束</li>
+<li>阻塞的线程束</li>
+<li>符合条件的线程束</li>
+</ul>
+<h4 id="性能评判指标"><a href="#性能评判指标" class="headerlink" title="性能评判指标:"></a>性能评判指标:</h4><p>指标与性能</p>
+<ul>
+<li>大部分情况，单一指标不能优化出最优性能</li>
+<li>总体性能直接相关的是内核的代码本质（内核才是关键）</li>
+<li>指标与性能之间选择平衡点x</li>
+<li>从不同的角度寻求指标平衡，最大化效率</li>
+<li>网格和块的尺寸为调节性能提供了一个不错的起点</li>
+</ul>
+<p>通过调整线程网格结构和核函数来达到SM的最高利用率</p>
+<h4 id="并行规约"><a href="#并行规约" class="headerlink" title="并行规约"></a>并行规约</h4><p>交错配对规约<img src="3_24.png" alt="img" style="zoom:67%;" /></p>
+<h4 id="嵌套执行"><a href="#嵌套执行" class="headerlink" title="嵌套执行"></a>嵌套执行</h4><img src="3_26-1763983420595-3.png" alt="img" style="zoom: 67%;" />
+
+<h3 id="内存"><a href="#内存" class="headerlink" title="内存"></a>内存</h3><ul>
+<li>寄存器(片上)</li>
+<li>共享内存(shared memory,SMEM),片上</li>
+<li>本地内存(本质也是全局内存,只是用法不同,在片外)</li>
+<li>常量内存,</li>
+<li>纹理内存</li>
+<li>全局内存</li>
+</ul>
+<h4 id="不属于全局内存（片上）："><a href="#不属于全局内存（片上）：" class="headerlink" title="不属于全局内存（片上）："></a>不属于全局内存（片上）：</h4><ul>
+<li>Registers（寄存器）</li>
+<li>Shared Memory</li>
+<li>L1 Cache</li>
+<li>L2 Cache</li>
+<li>constant cache ,缓存 constant memory</li>
+<li>texture cache, 缓存 texture memory 或者 global memory</li>
+<li>Instruction Cache 等内部结构</li>
+</ul>
+<h4 id="属于全局内存（最终都存储在-DRAM-显存-中）："><a href="#属于全局内存（最终都存储在-DRAM-显存-中）：" class="headerlink" title="属于全局内存（最终都存储在 DRAM (显存)中）："></a>属于全局内存（最终都存储在 DRAM (显存)中）：</h4><ul>
+<li>Local Memory（寄存器溢出）</li>
+<li>Constant Memory</li>
+<li>Global Memory</li>
+<li>Texture Memory </li>
+<li>只读数据区域（通过 <code>__LDG</code>函数访问）</li>
+</ul>
+<h4 id="内存管理"><a href="#内存管理" class="headerlink" title="内存管理"></a>内存管理</h4><p><strong>动态分配内存</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaMalloc</span><span class="params">(<span class="type">void</span>** devPtr,<span class="type">sizz_t</span> count)</span></span></span><br></pre></td></tr></table></figure>
+
+<p>eg:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">float</span>* devMem = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="function">cudaError_t <span class="title">cudaMalloc</span><span class="params">(<span class="type">float</span>** devMem,count)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>参数为指向指针的指针 所以是<code>float**</code> </p>
+<p><strong>初始化</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaMemset</span><span class="params">(<span class="type">void</span> *devPtr,<span class="type">int</span> value,<span class="type">size_t</span> count)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><strong>释放内存</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaFree</span><span class="params">(<span class="type">void</span> *devPtr)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>该指针一定是<code>cudaMalloc</code>类或其他分配函数分配得到的空间</p>
+<h4 id="内存传输"><a href="#内存传输" class="headerlink" title="内存传输"></a>内存传输</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaMemcpy</span><span class="params">(<span class="type">void</span> *dst,<span class="type">void</span> *src,<span class="type">size_t</span> count,<span class="keyword">enum</span> cudaMemcpyKind king)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>参数: 目标地址,原地址, 拷贝的内存大小,传输数据类型</p>
+<blockquote>
+<p>传输数据类型包括:</p>
+<ul>
+<li><code>cudaMemcpyHostToHost</code></li>
+<li><code>cudaMemcpyHostToDevice</code></li>
+<li><code>cudaMemcpyDeviceToHost</code></li>
+<li><code>cudaMemcpyDeviceToDevice</code></li>
+</ul>
+</blockquote>
+<h4 id="固定内存"><a href="#固定内存" class="headerlink" title="固定内存"></a>固定内存</h4><p>在主机端（Host）分配的一块不会被操作系统换出到磁盘的物理内存。</p>
+<p>分配:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaMalloHost</span><span class="params">(<span class="type">void</span> **devptr,<span class="type">size_t</span> count)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>释放:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaFreeHost</span><span class="params">(<span class="type">void</span> *ptr)</span></span></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="零拷贝内存"><a href="#零拷贝内存" class="headerlink" title="零拷贝内存"></a>零拷贝内存</h4><p>GPU可以直接访问位于主机的内存</p>
+<ul>
+<li>当设备内存不足的时候可以利用主机内存</li>
+<li>避免主机和设备之间的显式内存传输</li>
+<li>提高PCIe传输率</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaHostAlloc</span><span class="params">(boid** pHost,<span class="type">size_t</span> count,<span class="type">unsigned</span> <span class="type">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>flags:</p>
+<blockquote>
+<ul>
+<li>cudaHostAllocDefalt  &#x3D;&#x3D; cudaMallocHost</li>
+<li>cudaHostAllocPortable  返回能被所有CUDA上下文使用的固定内存</li>
+<li>cudaHostAllocWriteCombined  返回写结合内存</li>
+<li>cudaHostAllocMapped  产生零拷贝内存</li>
+</ul>
+</blockquote>
+<h4 id=""><a href="#" class="headerlink" title=""></a></h4><p><strong>统一虚拟寻址</strong>(UVA):设备内存和主机内存被映射到同一虚拟内存地址中</p>
+<p><strong>统一内存(Unified Memory)</strong>:</p>
+<p>驱动程序帮我们完成本地分配内存，然后传输到设备，然后在从设备传输回来</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__host__ cudaError_t <span class="title">cudaMallocManaged</span> <span class="params">( <span class="type">void</span>** devPtr, <span class="type">size_t</span> size, <span class="type">unsigned</span> <span class="type">int</span>  flags = cudaMemAttachGlobal )</span></span></span><br></pre></td></tr></table></figure>
+
+<p>该函数申请<code>Unified Memory</code>,物理位置可以在host也可以在device,由驱动根据访问行为自动决定并迁移</p>
+<p>向UVM 系统申请一块可由 CPU&#x2F;GPU 共享的内存</p>
+<p>GPU&#x2F;CPU 在访问时触发<strong>迁移</strong>,CPU 访问 → 页在 host 内存; GPU 访问 → 页迁移到 device 内存</p>
+<p>迁移时发生缺页中断(page fault)</p>
+<figure class="highlight txt"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">CPU/GPU 访问页 → 检测页不在本地 → UVM 触发 Page Fault → </span><br><span class="line">调度 DMA 把该页调到访问者附近 → 更新页表 → 继续执行</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>CUDA Kernel 有效带宽 (Effective Bandwidth)</strong> 的计算</p>
+<p>有效带宽的计算公式通常是：<br>$$<br>\text{Effective Bandwidth} &#x3D; \frac{\text{Data Transferred}}{\text{Time} \times 10^9} \quad \text{(GB&#x2F;s)}<br>$$<br>其中：</p>
+<ul>
+<li><strong>Data Transferred (数据传输量)</strong>：指 Kernel 执行期间从全局内存（Global Memory）读取和写入的总字节数（Read Bytes + Written Bytes）。</li>
+<li><strong>Time (时间)</strong>：指 Kernel 的执行时间（以秒为单位）。</li>
+<li><strong>10^9</strong>：用于将结果从 B&#x2F;s 转换为 GB&#x2F;s。</li>
+</ul>
+<p>全局内存通过缓存实现加载和存储的过程如下图</p>
+<p><img src="/image-20251126194009620.png" alt="image-20251126194009620"></p>
+<p><strong>内存事务</strong>: 从核函数发起内存请求到硬件响应返回数据的过程</p>
+<p>当一个内存事务的首个访问地址是缓存粒度（L1:32B(byte)或L2:128B）的偶数倍的时候：比如二级缓存32字节的偶数倍64，128字节的偶数倍256的时候，这个时候被称为<strong>对齐内存访问</strong>，非对齐访问就是除上述的其他情况，非对齐的内存访问会造成带宽浪费。</p>
+<blockquote>
+<p>比如说落在32,总比落在33好,万一你要访问32B的数据,那么落在32就只用访问一次,落在33就要访问两次</p>
+<p><strong>“落在边界”只能保证不会因为对齐问题产生额外的事务，但不能保证整个访问一定只需要一次事务。</strong> </p>
+<p>原因是：<br><strong>是否只需要一次事务，还取决于访问范围是否跨越事务大小。</strong></p>
+</blockquote>
+<p><strong>合并访问(coalescing)</strong>: 一个线程束的所有线程内存访问都在同一个内存块</p>
+<p>内存事务的<strong>优化关键</strong>：用最少的事务次数满足最多的内存请求。事务数量和吞吐量的需求随设备的计算能力变化。</p>
+<h3 id="缓存"><a href="#缓存" class="headerlink" title="缓存"></a>缓存</h3><ol>
+<li>一级缓存</li>
+<li>二级缓存</li>
+<li>只读常量缓存</li>
+<li>只读纹理缓存</li>
+</ol>
+<p>每个SM都有一个一级缓存,只读常量缓存,只读纹理缓存，所有SM公用一个二级缓存。</p>
+<p><strong>作用</strong>: 一二级缓存都是被用来存储本地内存和全局内存中的数据，也包括寄存器溢出的部分。</p>
+<p><strong>数据访问过程</strong>:</p>
+<p>   当线程需要访问某个地址时，首先检查<strong>寄存器</strong>，若不在寄存器，则访问 <strong>L1 缓存</strong>；地址通过索引计算定位到某个 cache set 并与该 set 的所有 tag 并行比较，若命中则直接将数据返回寄存器。若 L1 未命中，则以相同方式查询 <strong>L2 缓存</strong>，若命中，则数据会送回寄存器，同时可能回填到 L1。若 L2 仍未命中，则从显存 DRAM 中按缓存行(颗粒度)（有 L1 时为 128B，无 L1 时为 32B）取回整块数据，并回填到 L2（以及可能回填到 L1,当L1启动时），随后将其中真正需要的部分送入寄存器供线程使用；剩余部分留在缓存供后续访问命中。</p>
+<p>内存加载可以分为两类：</p>
+<ul>
+<li>缓存加载</li>
+<li>没有缓存的加载</li>
+</ul>
+<p>内存访问特点:</p>
+<ul>
+<li>是否使用缓存(一级缓存是否介入,可手动控制)</li>
+<li>对齐与非对齐</li>
+<li>合并与非合并</li>
+</ul>
+<p><strong>内存块(memory block)是你在 DRAM 中的数据，而缓存行(cache line)是硬件在把 DRAM 数据搬到缓存时切成的固定大小的“运输单元”。</strong></p>
+<ul>
+<li>对齐访问：访问落进单一缓存行</li>
+<li>非对齐访问：访问跨越多个缓存行 → 需要更多事务 → 带宽浪费</li>
+</ul>
+<p><strong>缓存加载</strong></p>
+<ol>
+<li>对齐合并访问,内存利用率100%</li>
+<li>对齐,不连续,warp内线程访问位置在一个粒度内,位置交叉,利用率100%</li>
+<li>连续非对齐, 当访问32个4B数据,那么数据会横跨两个块,利用率(32 * 4)&#x2F;(128 * 2) &#x3D; 50%</li>
+<li>warp线程访问同一位置,如果是4B大小,利用率4&#x2F;128&#x3D;3.125%</li>
+</ol>
+<p><strong>没有缓存的加载</strong></p>
+<blockquote>
+<p>没有通过L1,  L2是不得不通过的</p>
+</blockquote>
+<p>粒度变为32B,好处是提高了内存利用率</p>
+<ol>
+<li>对齐合并访问</li>
+<li>对齐不连续</li>
+<li>连续非对齐, 如果同样是32*4B的数据,即使不对其,最多访问5个块(因为连续),利用率32 * 4 &#x2F; 32 * 5 &#x3D; 80%</li>
+<li>所有线程访问一个4B数据,利用率 4&#x2F;32 &#x3D; 12.5%</li>
+</ol>
+<p><strong>只读缓存</strong>(read only):<br>颗粒度 32B,对于分散读取,细粒度优于L1(128B)</p>
+<p><strong>全局内存写入</strong>:<br>NVIDIA GPU 的全局内存写入（global memory store）默认不经过 L1 Cache，只经过 L2 Cache。</p>
+<p>原因: 全局写入一般不需要读回数据,绕过L1,减少对其污染,为读取提高命中率</p>
+<p>从 <code>Maxwell</code>开始,L1和<code>shared memory</code> 合并成了共享结构,但是写入(store)仍然不经过L1部分,只是用<code>shared memory</code>路径,他们只共享物理块,路径仍分离</p>
+<p><strong>对于AoS(数组结构体)和SoA(结构体数组)</strong></p>
+<p>cuda倾向于SoA,因为这种内存访问可以有效地合并</p>
+<h4 id="矩阵转置"><a href="#矩阵转置" class="headerlink" title="矩阵转置"></a>矩阵转置</h4><p><img src="/4-4-1.png" alt="4-4-1"></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">transformMatrix2D_CPU</span><span class="params">(<span class="type">float</span> * MatA,<span class="type">float</span> * MatB,<span class="type">int</span> nx,<span class="type">int</span> ny)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">for</span>(<span class="type">int</span> j=<span class="number">0</span>;j&lt;ny;j++)</span><br><span class="line">  &#123;</span><br><span class="line">	<span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;nx;i++)</span><br><span class="line">	&#123;</span><br><span class="line">	  MatB[i*nx+j]=MatA[j*nx+i];</span><br><span class="line">	&#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当然,所有的数据在内存里都是一维排布的,不管你是数组,结构体,多维数组..</p>
+<img src="4-4-2.png" alt="4-4-2" style="zoom: 80%;" />
+
+<p>不难看出:</p>
+<ul>
+<li>读: 请求内存连续,线程束可以连续访问(相同颜色可以看成合并读取)</li>
+<li>写:写到转置矩阵的列中,访问是交叉的</li>
+</ul>
+<p>实际上 先列读取再行写入效率会高一些 因为列读一级缓存一次读取128字节的数据，其中只有一个单位有用，但是剩下的并不会被马上覆盖，粒度是128字节，但是一级缓存的大小有几k或是更大，这些数据很有可能不会被替换，所以，我们按列读取数据，虽然第一行只用了一个，但是下一列的时候，理想情况是所有需要读取的元素都在一级缓存中，这时候，数据直接从缓存里面读取,速度变快 也就是<strong>缓存命中</strong></p>
+<h4 id="对角转置：读取行与读取列"><a href="#对角转置：读取行与读取列" class="headerlink" title="对角转置：读取行与读取列"></a>对角转置：读取行与读取列</h4><p>说是有性能优化</p>
+<h3 id="共享内存"><a href="#共享内存" class="headerlink" title="共享内存"></a>共享内存</h3><p>是一种可编程的缓存,作用:</p>
+<ol>
+<li>块内线程通信的通道</li>
+<li>用于全局内存数据的可编程管理的缓存</li>
+<li>告诉暂存存储器，用于转换数据来优化全局内存访问模式</li>
+</ol>
+<p>在其所属线程块被执行时建立, 在线程块执行完毕后释放, 线程块与其共享内存拥有相同的生命周期.</p>
+<p><strong>SM</strong>占有固定大小共享内存,分配<code>block</code>一定大小<code>shared memory</code>, 当<code>block</code>占有的<code>shared memory</code>越多,SM可支配的<code>block</code>就越少(因为SM拥有的SMEM大小是固定的),那么warp数量也就越少,导致延迟隐藏能力下降,减少吞吐量</p>
+<p>现在所有NVIDIA GPU中的共享内存(SMEM)都被划分为32个存储体(banks),与warp中32个线程对应</p>
+<p>每个存储体可同时为一个线程提供访问,默认大小4B(byte)</p>
+<p>存储体<strong>访问模式</strong>: </p>
+<ol>
+<li>并行访问: 多线程访问多存储体</li>
+<li>串行访问: 多线程访问同一存储体 发生内部冲突(bank conflict)</li>
+<li>广播访问: 多个线程访问同一个地址,不会发生冲突,而是硬件统一执行一次读取,将结果广播给其他访问该地址的线程的寄存器</li>
+</ol>
+<p><strong>在访问shared memory时，因多个线程读写同一个Bank中的不同数据地址时，导致shared memory 并发读写 退化 成顺序读写的现象叫做Bank Conflict；</strong></p>
+<p>需要注意的是，不同 warp 中的线程之间不存在 bank 冲突。</p>
+<h4 id="内存填充（padding）"><a href="#内存填充（padding）" class="headerlink" title="内存填充（padding）"></a><strong>内存填充</strong>（padding）</h4><p>多开了一列,但是bank数量必须是32,所以把多的那一列往后推,使得bank原先每一列的数据错位,避免了冲突,也就是说 :  </p>
+<p>   你声明一个二维存储体，编译器会把声明的二维转换成一维线性的，然后再重新整理成二维按照32个存储体，4-Byte&#x2F;8-Byte宽的内存分布，然后再进行运算的</p>
+<img src="image-20251127213111581.png" alt="image-20251127213111581" style="zoom: 67%;" />
+
+<p>优点在于：代码改动少，易于理解；而缺点有：</p>
+<ol>
+<li>增加了每个 block 用到的 shared memory 空间，可能导致 SM 内最大可并发的 block 数目减少，降低 occupancy。</li>
+<li>padding 后会出现地址不对齐的情况，如果采用如 float4 这样的向量化访问，会导致执行出错。</li>
+</ol>
+<h4 id="访问模式设置"><a href="#访问模式设置" class="headerlink" title="访问模式设置"></a>访问模式设置</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaDeviceGetSharedMemConfig</span><span class="params">(cudaSharedMemConfig * pConfig)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>访问模式查询: </p>
+<p>返回的pConfig可以是以下结果</p>
+<ul>
+<li><code>cudaSharedMemBankSizeFourByte</code> : shared memory <strong>bank width</strong> is four bytes.</li>
+<li><code>cudaSharedMemBankSizeEightByte </code>: shared memory <strong>bank width</strong> is eight bytes.</li>
+</ul>
+<h4 id="配置共享内存"><a href="#配置共享内存" class="headerlink" title="配置共享内存"></a>配置共享内存</h4><p>每个SM上有64KB的片上内存，共享内存和L1共享这64KB，并且可以配置。CUDA为配置一级缓存和共享内存提供以下两种方法：</p>
+<ol>
+<li>按设备进行配置</li>
+<li>按核函数进行配置</li>
+</ol>
+<p>配置函数:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaDeviceSetCacheConfig</span><span class="params">(cudaFuncCache cacheConfig)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>参数如下:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cudaFuncCachePreferNone: <span class="function">no <span class="title">preference</span><span class="params">(<span class="keyword">default</span>)</span></span></span><br><span class="line"><span class="function">cudaFuncCachePreferShared: prefer <span class="number">48</span>KB shared memory and <span class="number">16</span> KB L1 cache</span></span><br><span class="line"><span class="function">cudaFuncCachePreferL1: prefer <span class="number">48</span>KB L1 cache and <span class="number">16</span> KB shared memory</span></span><br><span class="line"><span class="function">cudaFuncCachePreferEqual: prefer <span class="number">32</span>KB L1 cache and <span class="number">32</span> KB shared memory</span></span><br></pre></td></tr></table></figure>
+
+<p>共享内存能人为的控制,减少不必要的删改,保证SM完整性,而L1全靠硬件完成,</p>
+<h4 id="同步"><a href="#同步" class="headerlink" title="同步:"></a>同步:</h4><p>是并行的重要机制，其主要目的就是防止冲突。同步基本方法：</p>
+<ol>
+<li>障碍 : 所有调用线程等待其余调用线程达到障碍点</li>
+<li>内存栅栏: 有调用线程必须等到全部内存修改对其余线程可见时才继续进行。</li>
+</ol>
+<p><strong>弱排序内存模型</strong></p>
+<p>   GPU 中的线程对内存的读写不保证按照源代码顺序执行；只要两个内存访问指令之间没有依赖，硬件可能乱序执行它们，并且不同线程看到的写入顺序也可能不一致。因此如果多个线程需要对共享数据进行有序、可控的读写，就<strong>必须使用同步手段</strong>，否则会出现完全不可预测的竞争行为。</p>
+<p><strong>显示障碍</strong></p>
+<p>障碍点设置在核函数中，注意这个指令只能在核函数中调用，并只对同一线程块内线程有效。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> __syncthreads();</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>作为障碍,确保同一线程块(block)中的所有线程都到达此障碍点后,才往下走</p>
+</li>
+<li><p>只能作为块之内的线程同步</p>
+</li>
+<li><p>要注意避免思索的情况发生,eg:</p>
+ <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (threadID % <span class="number">2</span> == <span class="number">0</span>) &#123;</span><br><span class="line">	__syncthreads();</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	__syncthreads();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>同一线程块内此障碍点之前的所有全局内存，共享内存操作，对后面的线程都是可见的。</p>
+</li>
+</ol>
+<p><strong>内存栅栏</strong></p>
+<p>内存栅栏能保证栅栏前的内核内存写操作对栅栏后的其他线程都是可见的，有以下三种栅栏：块，网格，系统。</p>
+<p>可见: 防止写操作乱序,确保写入完成,保证其他线程读取的是最新值</p>
+<p>线程块内：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> __threadfence_block();</span><br></pre></td></tr></table></figure>
+
+<p>保证同一块中的其他线程对于栅栏前的内存写操作可见</p>
+<p>网格级内存栅栏:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> __threadfence();</span><br></pre></td></tr></table></figure>
+
+<p>挂起调用线程，直到全局内存中所有写操作对相同的网格内的所有线程可见</p>
+<p>系统级栅栏，跨系统，包括主机和设备:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> __threadfence_system();</span><br></pre></td></tr></table></figure>
+
+<p>挂起调用线程，以保证该线程对全局内存，锁页主机内存和其他设备内存中的所有写操作对全部设备中的线程和主机线程可见。</p>
+<p><strong>Volatile修饰符</strong></p>
+<p>volatile声明一个变量，防止编译器优化，防止这个变量存入缓存，如果恰好此时被其他线程改写，那就会造成内存缓存不一致的错误，所以volatile声明的变量始终在全局内存中。</p>
+<p>关于warp的一点补充:<br>对于一个二维的<code>block</code> 分配<code>warp</code>的方式是顺着x切割,也就是<code>threadIdx.x</code>连续变化,假设我们的块大小是 (32,32) 那么我们第一个线程束就是 threadIdx.y&#x3D;0,threadIdx.x&#x3D;0……31  </p>
+<p>而<img src="5-12.png" alt="5-12" style="zoom:50%;" /></p>
+<p>对于一个大小为1024*4的数据块,如果索引方式是<code>A[threadIdx.x][threadIdx.y]</code> 假设我们使用上面的线程束访问,得到的就是绿色方框的数据,我日妈全是<code>bank conflict</code></p>
+<p>所以我们通常用<code>A[threadIdx.y][threadIdx.x]</code>来进行索引,减少冲突</p>
+<p>使用共享内存以及展开的共享内存加速规约, 大幅提高效率</p>
+<p>使用共享内存 转置</p>
+<p><strong>线程束洗牌指令</strong>是线程束内线程通讯的极佳方式</p>
+<p><code>lane</code>: 线程在<code>warp</code>内的id, 所以区间[0,31],束内唯一,块内不唯一</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> LaneID=threadIdx.x%<span class="number">32</span>;  </span><br><span class="line"><span class="type">unsigned</span> <span class="type">int</span> warpID=threadIdx.x/<span class="number">32</span>;  <span class="comment">//线程所属warpID</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> __shfl(<span class="type">int</span> var,<span class="type">int</span> srcLane,<span class="type">int</span> width=warpSize);</span><br></pre></td></tr></table></figure>
+
+<img src="1-1.png" alt="1-1" style="zoom:67%;" />
+
+
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> __shfl_up(<span class="type">int</span> var,<span class="type">unsigned</span> <span class="type">int</span> delta,<span class="type">int</span> with=warpSize);</span><br></pre></td></tr></table></figure>
+
+<img src="1-2.png" alt="1-2" style="zoom:67%;" />
+
+
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> __shfl_down(<span class="type">int</span> var,<span class="type">unsigned</span> <span class="type">int</span> delta,<span class="type">int</span> with=warpSize);</span><br></pre></td></tr></table></figure>
+
+<img src="1-4.png" alt="1-4" style="zoom:67%;" />
+
+
+
+
+
+<h2 id="流和事件"><a href="#流和事件" class="headerlink" title="流和事件"></a>流和事件</h2><p>cuda流: 一系列的cuda异步操作 例如 <code>host</code>分配内存&#x2F;传输数据给<code>device</code>  cudaMalloc &#x2F; cudaMemcpy, <code>kernel</code>启动 传输数据回<code>host</code>  Memcpy</p>
+<p>流可以对这些操作进行封装 , 保持执行顺序 允许操作在流中排队</p>
+<p>流中的操作对于<code>host</code>来说总是异步的, 因为cuda决定何时进行这些操作,我们要控制这些操作在其结果出来前调用需要其结果的操作,  避免死锁</p>
+<p>流内操作有严格顺序 但流间没有限制,多个流同时启动多个核,形成了网络<code>grid</code>级别的并行</p>
+<p>cuda的API也分同步异步</p>
+<ul>
+<li>同步行为函数会阻塞<code>host</code>线程  直至完成</li>
+<li>异步行为函数会再调用后立刻把指挥权返还<code>host</code></li>
+</ul>
+<p>所有cuda操作都在流中进行,流分为:</p>
+<ul>
+<li>隐式声明的流, 称为空流  (默认)  没有名字 无法管理</li>
+<li>显式声明的流, 称为非空流</li>
+</ul>
+<p>基于流的异步内核启动和数据传输支持以下粗粒度并发  (重叠就是同时进行)</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>重叠主机和设备计算</td>
+<td>CPU 与 GPU kernel 同时跑</td>
+</tr>
+<tr>
+<td>重叠主机计算和数据传输</td>
+<td>CPU 与 H↔D memcpy 同时跑</td>
+</tr>
+<tr>
+<td>重叠数据传输和设备计算</td>
+<td>GPU 的 kernel 与 GPU 的 DMA 拷贝同时进行</td>
+</tr>
+<tr>
+<td>并发设备计算</td>
+<td>多个 GPU 同时跑自己的 kernel</td>
+</tr>
+</tbody></table>
+<p>定义流名字:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cudaStream_t name;</span><br></pre></td></tr></table></figure>
+
+<p>为流分配资源:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamCreate</span><span class="params">(cudaStream_t* pStream)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>回收资源:  在流执行时也能回收: 等流执行结束后,自动回收 </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamDestroy</span><span class="params">(cudaStream_t stream)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>查询流执行情况:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//阻塞主机,直至流完成</span></span><br><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamSynchronize</span><span class="params">(cudaStream_t stream)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">//马上返回结果</span></span><br><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamQuery</span><span class="params">(cudaStream_t stream)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>流执行完了返回:<code>cudaSuccess</code>  否则返回<code>cudaErrorNotReady</code></p>
+<p><strong>执行异步数据传输时，主机端的内存必须是固定的，非分页的</strong></p>
+<p><strong>虚假依赖</strong>:</p>
+<p>Fermi只有一个硬件工作队列  <img src="6-2.png" alt="6-2" style="zoom:50%;" /></p>
+<p>绿色方框代表一个流</p>
+<p>这里C和P,R和X可以并行  但是给人感觉P依赖B,X依赖Q,因为要等待BQ执行完 造成虚假依赖</p>
+<p><strong>Hyper-Q技术</strong> :解决虚假依赖</p>
+<p>最好办法就是多个工作队列</p>
+<img src="6-3.png" alt="6-3" style="zoom:50%;" />
+
+
+
+<p>流具有优先级(priority),数字越小 优先级越高</p>
+<p>创建优先级流:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamCreateWithPriority</span><span class="params">(cudaStream_t* pStream, <span class="type">unsigned</span> <span class="type">int</span> flags,<span class="type">int</span> priority)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>查询当前设备优先级分布:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaDeviceGetStreamPriorityRange</span><span class="params">(<span class="type">int</span> *leastPriority, <span class="type">int</span> *greatestPriority)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="CUDA事件"><a href="#CUDA事件" class="headerlink" title="CUDA事件"></a>CUDA事件</h4><p>本质上就是标记</p>
+<ul>
+<li><p>同步流执行</p>
+</li>
+<li><p>监控设备的进展</p>
+<blockquote>
+<p> 流可以插入任何位置,只有流中事件之前的操作都完成了 才能触发时间完成</p>
+</blockquote>
+</li>
+</ul>
+<p>事件声明: </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cudaEvent_t event;</span><br></pre></td></tr></table></figure>
+
+<p>分配资源:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventCreate</span><span class="params">(cudaEvent_t* event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>回收事件的资源</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventDestroy</span><span class="params">(cudaEvent_t event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>记录事件和计算运行时间</strong></p>
+<p>流中加入事件:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventRecord</span><span class="params">(cudaEvent_t event, cudaStream_t stream = <span class="number">0</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>阻塞主机线程直到传入的等待事件完成</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventSynchronize</span><span class="params">(cudaEvent_t event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>异步版本:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventQuery</span><span class="params">(cudaEvent_t event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>直接返回事件状态</p>
+<p>计算事件时间间隔:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventElapsedTime</span><span class="params">(<span class="type">float</span>* ms, cudaEvent_t start, cudaEvent_t stop)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>单位ms, 事件不一定在同一个流中</p>
+<ul>
+<li>同步流(空流&#x2F;默认流) </li>
+<li>异步流(非空流)  分阻塞流和非阻塞流</li>
+</ul>
+<p>如果一个非空流被声明为非阻塞的，那么没人能阻塞他，如果声明为阻塞流，则会被空流阻塞。 </p>
+<p>比如一个非空流 有时要跟<code>host</code>通信,那么我们希望他被阻塞</p>
+<p><strong>流的执行顺序:</strong> </p>
+<p><code>cudaStreamCreate</code> 声明的是阻塞流,   空留不需要显式声明,他是阻塞的 与所有阻塞流同步</p>
+<p>当操作A发布到空流中，A执行之前，CUDA会等待A之前的全部操作都发布到阻塞流中，所有发布到阻塞流中的操作都会挂起，等待，直到在此操作指令之前的操作都完成，才开始执行。</p>
+<p>eg:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kernel_1&lt;&lt;&lt;<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, stream_1&gt;&gt;&gt;();</span><br><span class="line">kernel_2&lt;&lt;&lt;<span class="number">1</span>, <span class="number">1</span>&gt;&gt;&gt;();</span><br><span class="line">kernel_3&lt;&lt;&lt;<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, stream_2&gt;&gt;&gt;();</span><br></pre></td></tr></table></figure>
+
+<p>这里<code>stream_1</code> <code>stream_2</code> 都是阻塞流,空流<code>kernel_2</code> 也是阻塞的  所以这三个核函数在阻塞流上执行</p>
+<p>此时<code>kernel_1</code>启动 控制权回到<code>host</code> 启动<code>kernel_2</code> 但<code>kernel_2</code>不会马上执行 他会挂起等到<code>kernel_1</code>执行完毕后才执行  同理,<code>kernel_2</code>启动后,控制权立刻回到<code>host</code>  启动<code>kernel_3</code> 也是挂起等待再执行</p>
+<p>创建一个<strong>非阻塞流</strong>，因为我们默认创建的是阻塞版本：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamCreateWithFlags</span><span class="params">(cudaStream_t* pStream, <span class="type">unsigned</span> <span class="type">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>第二个参数就是选择阻塞还是非阻塞版本：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cudaStreamDefault;<span class="comment">// 默认阻塞流</span></span><br><span class="line">cudaStreamNonBlocking: <span class="comment">//非阻塞流，对空流的阻塞行为失效。</span></span><br></pre></td></tr></table></figure>
+
+<p>如果前面的<code>stream_1</code>和<code>stream_2</code>声明为非阻塞的，那么上面的调用方法的结果是三个核函数同时执行。</p>
+<p><strong>隐式同步</strong></p>
+<p><code>cudaMemcpy </code>可以隐式同步</p>
+<p>注意: 隐式同步之所以称为隐式因为函数原始功能就不是为了同步,忽略隐式同步会造成性能下降,因为同步意味着阻塞</p>
+<p>隐式操作常出现在内存操作上，比如：</p>
+<ul>
+<li>锁页主机内存分布</li>
+<li>设备内存分配</li>
+<li>设备内存初始化</li>
+<li>同一设备两地址之间的内存复制</li>
+<li>一级缓存，共享内存配置修改</li>
+</ul>
+<p><strong>显式同步</strong>: </p>
+<p>常见同步:</p>
+<ul>
+<li>同步设备</li>
+<li>同步流</li>
+<li>同步流中的事件</li>
+<li>使用事件跨流同步</li>
+</ul>
+<p>阻塞主机线程，直到设备完成所有操作：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaDeviceSynchronize</span><span class="params">(<span class="type">void</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>同步流:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamSynchronize</span><span class="params">(cudaStream_t stream)</span></span>; <span class="comment">//第一个是同步流的，阻塞主机直到完成</span></span><br><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamQuery</span><span class="params">(cudaStream_t stream)</span></span>;  <span class="comment">//第二个可以完成非阻塞流测试 返回执行状态</span></span><br></pre></td></tr></table></figure>
+
+<p>事件:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventSynchronize</span><span class="params">(cudaEvent_t event)</span></span>;</span><br><span class="line"><span class="function">cudaError_t <span class="title">cudaEventQuery</span><span class="params">(cudaEvent_t event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>流间同步:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaStreamWaitEvent</span><span class="params">(cudaStream_t stream, cudaEvent_t event)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>指定的流要等待指定的事件，事件完成后流才能继续，这个事件可以在这个流中，也可以不在，当在不同的流的时候，这个就是实现了跨流同步</p>
+<p>CDUA提供了一种控制事件行为和性能的函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">cudaError_t <span class="title">cudaEventCreateWithFlags</span><span class="params">(cudaEvent_t* event, <span class="type">unsigned</span> <span class="type">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>其中参数是：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cudaEventDefault</span><br><span class="line">cudaEventBlockingSync</span><br><span class="line">cudaEventDisableTiming</span><br><span class="line">cudaEventInterprocess</span><br></pre></td></tr></table></figure>
+
+<p>其中<code>cudaEventBlockingSync</code>指定使用<code>cudaEventSynchronize</code>同步会造成阻塞调用线程。<code>cudaEventSynchronize</code>默认是使用cpu周期不断重复查询事件状态，而当指定了事件是<code>cudaEventBlockingSync</code>的时候，会将查询放在另一个线程中，而原始线程继续执行，直到事件满足条件，才会通知原始线程，这样可以减少CPU的浪费，但是由于通讯的时间，会造成一定的延迟。<br><code>cudaEventDisableTiming</code>表示事件不用于计时，可以减少系统不必要的开支也能提升<code>cudaStreamWaitEvent</code>和<code>cudaEventQuery</code>的效率<code>cudaEventInterprocess</code>表明可能被用于进程之间的事件</p>
+<p><strong>使用OpenMP的调度操作</strong></p>
+<p>不光GPU能够进行并行操作,CPU也可以,使用<code>OpenMP</code>再<code>host</code>多线程操作</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">omp_set_num_thread</span>(n_stream);  <span class="comment">// 调用OpenMP的API创建n_stream个线程</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> omp parallel  <span class="comment">//告诉编译器 括号内为各个线程执行的部分 类似于并行单元</span></span></span><br><span class="line">	&#123;</span><br><span class="line">		<span class="type">int</span> i=<span class="built_in">omp_get_thread_num</span>();</span><br><span class="line">		kernel_1&lt;&lt;&lt;grid,block,<span class="number">0</span>,stream[i]&gt;&gt;&gt;();</span><br><span class="line">		kernel_2&lt;&lt;&lt;grid,block,<span class="number">0</span>,stream[i]&gt;&gt;&gt;();</span><br><span class="line">		kernel_3&lt;&lt;&lt;grid,block,<span class="number">0</span>,stream[i]&gt;&gt;&gt;();</span><br><span class="line">		kernel_4&lt;&lt;&lt;grid,block,<span class="number">0</span>,stream[i]&gt;&gt;&gt;();</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>GPU资源的并发限制</strong></p>
+<p>当内核的线程数增加的时候,内核级别的并行数量下降</p>
+<p>因为硬件资源有限,单个<code>kernel</code> 占用资源增加,并发的<code>kernel</code> 就减少了   这种情况单个<code>kernel</code>效率 ↑ ,并发<code>kernel</code>数量 ↓</p>
+<p><strong>流回调</strong></p>
+<h2 id="常见算子"><a href="#常见算子" class="headerlink" title="常见算子"></a>常见算子</h2><h3 id="elementwise-逐元素"><a href="#elementwise-逐元素" class="headerlink" title="elementwise(逐元素)"></a>elementwise(逐元素)</h3><p>对张量中每个元素进行相同的操作,<strong>每个元素计算独立</strong></p>
+<h4 id="朴素写法"><a href="#朴素写法" class="headerlink" title="朴素写法"></a>朴素写法</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">element_add</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> tid = threadIdx.x + blockDim.x * blockIdx.x;</span><br><span class="line">	<span class="keyword">if</span> (tid &lt; N)</span><br><span class="line">	&#123;</span><br><span class="line">		C[tid]=A[tid]+B[tid];</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="网格跨步循环"><a href="#网格跨步循环" class="headerlink" title="网格跨步循环"></a>网格跨步循环</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">eementwise</span><span class="params">(<span class="type">float</span>* A,<span class="type">float</span>* B,<span class="type">float</span>* C,<span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> tid =threadIdx.x+blockIdx.x*blockDim.x;</span><br><span class="line">	<span class="type">int</span> num_threads = gridDim.x*blockDim.x;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span>(<span class="type">int</span> i=tid;i&lt;N;i+=num_threads)</span><br><span class="line">	&#123;</span><br><span class="line">		C[i]=A[i]+B[i];</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>单个指令,一个warp里的线程能够合并访问内存,减少内存事务,提高带宽</p>
+<h4 id="Vectorized-Memory-Access（向量化访存）"><a href="#Vectorized-Memory-Access（向量化访存）" class="headerlink" title="Vectorized Memory Access（向量化访存）"></a>Vectorized Memory Access（向量化访存）</h4><p>使用向量化访存的最简单方式是使用 CUDA C&#x2F;C++ 标准头文件中的向量数据类型，如 <code>int2</code>, <code>int4</code> , <code>float2</code>，<code>float4</code> ，可以通过类型转换的方式进行实现。</p>
+<p><strong>float4 类型转换</strong>: </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> FLOAT4(value) (reinterpret_cast<span class="string">&lt;float4*&gt;</span>(&amp;(value))[0])</span></span><br></pre></td></tr></table></figure>
+
+<p>这个宏从 <code>value</code> 的起始地址开始，按 <code>float4</code> 的大小一次性读出 128bit 数据，返回一个 <code>float4</code> 值，而不是地址。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> block_size = <span class="number">256</span>;</span><br><span class="line"><span class="type">int</span> total_thread = (N<span class="number">+4</span><span class="number">-1</span>)/<span class="number">4</span>; <span class="comment">//向上取整, 一共需要多少线程,一个线程处理一个float4</span></span><br><span class="line"><span class="type">int</span> block_size = (total_threads+block_size<span class="number">-1</span>)/block_size;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> FLOAT4(value) (reinterpret_cast<span class="string">&lt;float4 *&gt;</span>(&amp;(value))[0])</span></span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">elementwise</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> index = <span class="number">4</span> * (threadIdx.x + blockDim.x * blockIdx.x);</span><br><span class="line">	<span class="type">int</span> num_threads = gridDim.x * blockDim.x;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = index; i &lt; N; i += num_threads * <span class="number">4</span>)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span> (i &lt; N - <span class="number">4</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			float4 a = <span class="built_in">FLOAT4</span>(A[i]);</span><br><span class="line">			float4 b = <span class="built_in">FLOAT4</span>(B[i]);</span><br><span class="line">			float4 c;</span><br><span class="line">			c.x = a.x + b.x;</span><br><span class="line">			c.y = a.y + b.y;</span><br><span class="line">			c.z = a.z + b.z;</span><br><span class="line">			c.w = a.w + b.w;</span><br><span class="line">			<span class="built_in">FLOAT4</span>(C[i])=c;</span><br><span class="line">		&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">			<span class="keyword">for</span>(<span class="type">int</span> j=i;j&lt;N;j++)</span><br><span class="line">			&#123;</span><br><span class="line">				C[j]=A[j]+B[j];</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="Transpose-转置"><a href="#Transpose-转置" class="headerlink" title="Transpose(转置)"></a>Transpose(转置)</h3><p>为了尽可能地提高global memory的访存效率,要尽可能多的合并warp的访存请求,减少内存事务</p>
+<h4 id="朴素写法-1"><a href="#朴素写法-1" class="headerlink" title="朴素写法"></a>朴素写法</h4><img src="image-20260104160838742.png" alt="image-20260104160838742" style="zoom:50%;" />
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//行读列写 为什么是行读呢,因为ix是横着排的,它的变化是连续的,但是iy有个系数N,它的变化导致整体大小变化大,按照线程连续读取来说,A[iy * N + ix]就是 行读 </span></span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">transposeNaiveRow</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> ix = blockIdx.x * blockDim.x + threadIdx.x;</span><br><span class="line">	<span class="type">int</span> iy = blockIdx.y * blockDim.y + threadIdx.y;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (iy &lt; M &amp;&amp; ix &lt; N)</span><br><span class="line">	&#123;</span><br><span class="line">		B[ix * M + iy] = A[iy * N + ix];</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//列读行写 其实就是合并写入</span></span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">transposeNaiveCol</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> ix = blockIdx.x * blockDim.x + threadIdx.x;</span><br><span class="line">	<span class="type">int</span> iy = blockIdx.y * blockDim.y + threadIdx.y;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (iy &lt; M &amp;&amp; ix &lt; N)</span><br><span class="line">	&#123;</span><br><span class="line">		B[iy * M + ix] = A[ix*N+iy];</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 NaiveRow 中之所以是行读、列写，完全是因为代码中使用了 <code>A[iy * N + ix]</code> 和 <code>B[ix * M + iy]</code> 这样的索引方式；warp 的访存行为只是对这组地址进行合并或拆分。</p>
+<p><strong>内存事务数量:</strong> </p>
+<p>举个例子: 在 NaiveRow(行读,列写) , block(2,128)(一个block假定有256个threads) 中，一个 warp 的 32 个线程在读取 A 时，</p>
+<p>访问地址被分成 16 个互不连续的 8B 段，因此产生 16 个读取 memory transactions； 因为一行只有两个threads是连续的<br>在写入 B 时，访问地址被分成 2 个 64B 连续段，每个段需要 2 个 transactions，因此一共 4 个写入 memory transactions。</p>
+<h4 id="一个thread负责多个元素"><a href="#一个thread负责多个元素" class="headerlink" title="一个thread负责多个元素"></a>一个thread负责多个元素</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">int</span> Bm, <span class="type">int</span> Bn&gt;</span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">transposeColNelements</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="type">int</span> r0 = blockIdx.x * Bm;</span><br><span class="line"><span class="type">int</span> c0 = blockIdx.y * Bn;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> x = threadIdx.x; x &lt; Bm; x += blockDim.x)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> r = r0 + x;</span><br><span class="line">	<span class="keyword">if</span> (r &gt; M)</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> y = threadIdx.y; y &lt; N; y += blockDim.y)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="type">int</span> c = c0 + y;</span><br><span class="line">		<span class="keyword">if</span> (c &lt; N)</span><br><span class="line">		&#123;</span><br><span class="line">			B[c * M + r] = A[r * N + c];</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="共享内存-1"><a href="#共享内存-1" class="headerlink" title="共享内存"></a>共享内存</h4><p>读取数据:</p>
+<p>从矩阵A中读到共享内存</p>
+<p><img src="/v2-879a4f32a145fa813537265111086835_1440w.jpg" alt="img"></p>
+<p>写入到B矩阵<img src="/v2-d08a348be17445373b320a2a2dd3d171_r.jpg" alt="img"></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="type">int</span> Bm, <span class="type">int</span> Bn&gt;</span></span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">transposeShared</span><span class="params">(<span class="type">float</span>* A, <span class="type">float</span>* B, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> N)</span> </span>&#123;</span><br><span class="line">  __shared__ <span class="type">float</span> tile[Bm][Bn];</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* -------- 读取阶段 -------- */</span></span><br><span class="line">  <span class="comment">// (r0, c0) 表示 tile 内左上角元素在 matrixA 中的坐标</span></span><br><span class="line">  <span class="comment">//因为要warp里的threads按行读取数据,所以x负责列,也就是c0</span></span><br><span class="line">  <span class="type">int</span> r0 = blockIdx.y * Bm;  </span><br><span class="line">  <span class="type">int</span> c0 = blockIdx.x * Bn;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// thread y 方向负责：矩阵 A 的行，shared memory 的行</span></span><br><span class="line">  <span class="comment">// thread x 方向负责：矩阵 A 的列，shared memory 的列</span></span><br><span class="line">  <span class="comment">// shared memory 中的元素 tile[y][x] = A[r0 + y, c0 + x]</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> y = threadIdx.y; y &lt; Bm; y += blockDim.y) &#123;  <span class="comment">// 在 y 方向，每次跨度为 blockDim.y</span></span><br><span class="line">	<span class="type">int</span> r = r0 + y;</span><br><span class="line">	<span class="keyword">if</span> (r &gt;= M) <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> x = threadIdx.x; x &lt; Bn; x += blockDim.x) &#123;  <span class="comment">// 在 x 方向，每次跨度为 blockDim.x</span></span><br><span class="line">	  <span class="type">int</span> c = c0 + x;</span><br><span class="line">	  <span class="keyword">if</span> (c &lt; N) &#123;</span><br><span class="line">		tile[y][x] = A[r * N + c];  <span class="comment">// 将 A[r0 + y, c0 + x] 写入 tile[y][x]</span></span><br><span class="line">	  &#125;</span><br><span class="line">	&#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  __syncthreads();  <span class="comment">// 同步线程块</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* -------- 写入阶段 -------- */</span></span><br><span class="line"><span class="comment">// (c0, r0) 表示 tile 内左上角元素在 matrixB 中的坐标</span></span><br><span class="line"><span class="comment">// thread y 方向负责：矩阵 B 的行，shared memory 的列</span></span><br><span class="line"><span class="comment">// thread x 方向负责：矩阵 B 的列，shared memory 的行</span></span><br><span class="line"><span class="comment">// shared memory 中的元素 tile[x][y] = B[c0 + y, r0 + x]</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> y = threadIdx.y; y &lt; Bn; y += blockDim.y) &#123;  <span class="comment">// 在 y 方向，每次跨度为 blockDim.y</span></span><br><span class="line">	<span class="type">int</span> c = c0 + y;</span><br><span class="line">	<span class="keyword">if</span> (c &gt;= N) <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> x = threadIdx.x; x &lt; Bm; x += blockDim.x) &#123;  <span class="comment">// 在 x 方向，每次跨度为 blockDim.x</span></span><br><span class="line">	  <span class="type">int</span> r = r0 + x;</span><br><span class="line">	  <span class="keyword">if</span> (r &lt; M) &#123; B[c * M + r] = tile[x][y]; &#125;  <span class="comment">// 将 tile[x][y] 写入 B[c0 + y, r0 + x]</span></span><br><span class="line">	&#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里矩阵A,B的赋值都是当成一个一维数据,展开来算的</p>
+<h4 id="swizzling-去bank-conflicts"><a href="#swizzling-去bank-conflicts" class="headerlink" title="swizzling 去bank conflicts"></a>swizzling 去bank conflicts</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">int</span> Bm, <span class="type">int</span> Bn&gt;</span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">transposeSharedSwizzling</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	__shared__ <span class="type">float</span> tile[Bm][Bn];</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 读取阶段  ------------------------------------------</span></span><br><span class="line">	<span class="type">int</span> r0 = blockIdx.y * Bm;</span><br><span class="line">	<span class="type">int</span> c0 = blockIdx.x * Bn;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> y = threadIdx.y; y &lt; Bm; y += blockDim.y)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="type">int</span> r = r0 + y;</span><br><span class="line">		<span class="keyword">if</span> (r &gt;= M)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">		<span class="keyword">for</span> (<span class="type">int</span> x = threadIdx.x; x &lt; Bn; x += blockDim.x)</span><br><span class="line">		&#123;</span><br><span class="line">			<span class="type">int</span> c = c0 + x;</span><br><span class="line">			<span class="keyword">if</span> (c &lt; N)</span><br><span class="line">				tile[y][x ^ y] = A[r * N + c];  <span class="comment">// 将 A[r0 + y, c0 + x] 写入 tile[y][x ^ y]</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	__syncthreads();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 写入阶段  ------------------------------------------</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> y = threadIdx.y; y &lt; Bn; y += blockDim.y)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="type">int</span> c = c0 + y;</span><br><span class="line">		<span class="keyword">if</span> (c &gt;= N)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">		<span class="keyword">for</span> (<span class="type">int</span> x = threadIdx.x; x &lt; Bm; x++ blockDim.x)</span><br><span class="line">		&#123;</span><br><span class="line">			<span class="type">int</span> r = r0+x;</span><br><span class="line">			<span class="keyword">if</span>(r&lt;M)</span><br><span class="line">			B[c*M+r]=tile[x][x^y]; <span class="comment">//将 tile[x][x ^ y] 写入 B[c0 + y, r0 + x]</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>swizzling主要就是 在存数据的时候做到行不变,列是 原先行列的异或<img src="image-20260108202526732.png" alt="image-20260108202526732" style="zoom:67%;" /><img src="E:\桌面\学习笔记\cuda.assets\v2-9904d182fb4224dfec02638e3e0db481_1440w.jpg" alt="img" style="zoom: 50%;" /></p>
+<h3 id="CUDA-reduce-算子"><a href="#CUDA-reduce-算子" class="headerlink" title="CUDA reduce 算子"></a>CUDA reduce 算子</h3><p>reduce(规约)运算,将集合中的元素,通过反复运用一个二元运算,最后得到结果的过程 </p>
+<p>x&#x3D;x1⊕x2⊕…xn , ⊕代表一个二元运算  乘法,加法,取最大值(softmax)等..</p>
+<h4 id="朴素实现"><a href="#朴素实现" class="headerlink" title="朴素实现"></a>朴素实现</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">reduce0</span><span class="params">(<span class="type">float</span> *input, <span class="type">float</span> *output)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="comment">// 同一个块内的线程共享共享内存，不同块才会另外开辟</span></span><br><span class="line">	__shared__ <span class="type">float</span> sdata[THREAD_PER_BLOCK]; </span><br><span class="line">	<span class="type">int</span> i = threadIdx.x + blockIdx.x * blockDim.x; <span class="comment">//input是所有线程共同负责的 所以用全局内存索引,代表索引号</span></span><br><span class="line">	<span class="type">int</span> tid = threadIdx.x;  <span class="comment">//sdata大小与blockDim.x一样 不同block负责的共享内存不同, 所以用块内索引</span></span><br><span class="line">	sdata[tid] = input[i];</span><br><span class="line">	__syncthreads();</span><br><span class="line">	</span><br><span class="line">	<span class="comment">//reduction</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> s = <span class="number">1</span>; s &lt; blockDim.x; s *= <span class="number">2</span>)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span> (tid % (<span class="number">2</span> * s) == <span class="number">0</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			sdata[tid] += sdata[tid + s];</span><br><span class="line">		&#125;</span><br><span class="line">		__syncthreads();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (tid == <span class="number">0</span>)</span><br><span class="line">		output[blockIdx.x] = sdata[tid]; <span class="comment">// 这里sdata[0]一样 因为tid==0</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化一:减少warp divergence</strong></p>
+<p><strong>Warp Divergence</strong> 是指在一个 warp 中，不同线程执行不同路径（即不同的条件分支）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//reduction</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> s = <span class="number">1</span>; s &lt; blockDim.x; s *= <span class="number">2</span>)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> index  = <span class="number">2</span>*s*tid;</span><br><span class="line">	<span class="keyword">if</span>(index&lt;blockDim.x)</span><br><span class="line">		sdata[tid] += sdata[tid + s];  <span class="comment">//不同blcok负责不同的shared mem</span></span><br><span class="line">	__syncthreads();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化二: 解决bank conflicts</strong></p>
+<p>这里<strong>提醒</strong>一下: 因为发生冲突条件是一个warp里的不同线程访问同一个bank的不同位置<br>所以说在存数据的时候,一个warp刚好存一行,一共八个warp,存八行,此时不会发生冲突</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//reduction </span></span><br><span class="line"><span class="keyword">for</span>(<span class="type">unsigned</span> <span class="type">int</span> s=blockDim.x/<span class="number">2</span>; s&gt;<span class="number">0</span>; s&gt;&gt;=<span class="number">1</span>)&#123;</span><br><span class="line">	<span class="keyword">if</span>(tid &lt; s)&#123;</span><br><span class="line">		sdata[tid]+=sdata[tid+s];</span><br><span class="line">	&#125;</span><br><span class="line">	__syncthreads();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>优化后,0号线程读取0,128,1号线程读取1,129,情况是同一个线程读取同一个bank里的数据,这种情况不是冲突,按照知乎说法是串行执行</p>
+<p><strong>优化三</strong>:</p>
+<p>优化二中,每个block中,128-255线程除了赋值,一次加法也不做,为了合理利用,我们在复制的时候就进行一次加法运算,当然,前提是扩大单个block负责的数据范围,同时减少block数量</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> NUM_PER_BLOCK = <span class="number">2</span>*THREAD_PER_BLOCK;</span><br><span class="line"><span class="type">int</span> block_num = N / NUM_PER_BLOCK;</span><br><span class="line"><span class="comment">//通常来说NUM_PER_BLOCK与THREAD_PER_BLOCK大小相同</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">reduce3</span><span class="params">(<span class="type">float</span> *d_in,<span class="type">float</span> *d_out)</span></span>&#123;</span><br><span class="line">	__shared__ <span class="type">float</span> sdata[THREAD_PER_BLOCK];</span><br><span class="line"></span><br><span class="line">	<span class="comment">//each thread loads one element from global memory to shared mem</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> i=blockIdx.x*(blockDim.x*<span class="number">2</span>)+threadIdx.x;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> tid=threadIdx.x;</span><br><span class="line">	sdata[tid]=d_in[i] + d_in[i+blockDim.x]; <span class="comment">//进行一次加法运算</span></span><br><span class="line">	__syncthreads();</span><br><span class="line"></span><br><span class="line">	<span class="comment">// do reduction in shared mem</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="type">unsigned</span> <span class="type">int</span> s=blockDim.x/<span class="number">2</span>; s&gt;<span class="number">0</span>; s&gt;&gt;=<span class="number">1</span>)&#123;</span><br><span class="line">		<span class="keyword">if</span>(tid &lt; s)&#123;</span><br><span class="line">			sdata[tid]+=sdata[tid+s];</span><br><span class="line">		&#125;</span><br><span class="line">		__syncthreads();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// write result for this block to global mem</span></span><br><span class="line">	<span class="keyword">if</span>(tid==<span class="number">0</span>)d_out[blockIdx.x]=sdata[tid];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优化四:展开最后一维减少同步</strong><br>在for循环中,当s&#x3D;32时,就只有warp0 在工作了,然而其余warp还是要跟着同步,极大浪费了资源</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//把本该在for循环里进行的操作全部拎出来 你看这有6步,如果不单独进行其他warp就要等六个循环..</span></span><br><span class="line"><span class="function">__device__ <span class="type">void</span> <span class="title">warpReduce</span><span class="params">(<span class="keyword">volatile</span> <span class="type">float</span>* cache, <span class="type">unsigned</span> <span class="type">int</span> tid)</span></span>&#123;</span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+32</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();      为什么一定是同步的呢,</span></span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+16</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();</span></span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+8</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();</span></span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+4</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();</span></span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+2</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();</span></span><br><span class="line">	cache[tid]+=cache[tid<span class="number">+1</span>];</span><br><span class="line">	<span class="comment">//__syncthreads();</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">reduce4</span><span class="params">(<span class="type">float</span> *d_in,<span class="type">float</span> *d_out)</span></span>&#123;</span><br><span class="line">	__shared__ <span class="type">float</span> sdata[THREAD_PER_BLOCK];</span><br><span class="line"></span><br><span class="line">	<span class="comment">//each thread loads one element from global memory to shared mem</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> i=blockIdx.x*(blockDim.x*<span class="number">2</span>)+threadIdx.x;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> tid=threadIdx.x;   </span><br><span class="line">	sdata[tid]=d_in[i] + d_in[i+blockDim.x];</span><br><span class="line">	__syncthreads();</span><br><span class="line"></span><br><span class="line">	<span class="comment">// do reduction in shared mem</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="type">unsigned</span> <span class="type">int</span> s=blockDim.x/<span class="number">2</span>; s&gt;<span class="number">32</span>; s&gt;&gt;=<span class="number">1</span>)&#123;</span><br><span class="line">		<span class="keyword">if</span>(tid &lt; s)&#123;</span><br><span class="line">			sdata[tid]+=sdata[tid+s];</span><br><span class="line">		&#125;</span><br><span class="line">		__syncthreads();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// write result for this block to global mem</span></span><br><span class="line">	<span class="keyword">if</span>(tid&lt;<span class="number">32</span>)<span class="built_in">warpReduce</span>(sdata,tid);</span><br><span class="line">	<span class="keyword">if</span>(tid==<span class="number">0</span>)d_out[blockIdx.x]=sdata[tid];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="CUDAgemm算子"><a href="#CUDAgemm算子" class="headerlink" title="CUDAgemm算子"></a><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/1910636263666610461">CUDAgemm算子</a></h3><p><strong>naiveGEMM</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">__global__ <span class="type">void</span> <span class="title">naiveGEMM</span><span class="params">(<span class="type">float</span> *A, <span class="type">float</span> *B, <span class="type">float</span> *C, <span class="type">const</span> <span class="type">int</span> K, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> N)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="type">int</span> r = threadIdx.y + blockDim.y * blockIdx.y;</span><br><span class="line">	<span class="type">int</span> c = threadIdx.x + blockDim.x * blockIdx.x;</span><br><span class="line">	<span class="keyword">if</span> (r &gt;= M || c &gt;= N)  <span class="comment">//防止越界</span></span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	<span class="type">float</span> value = <span class="number">0.f</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">//C[r][c] = sum_k A[r][k] * B[k][c]</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> k = <span class="number">0</span>; k &lt; K; k++)  &#123;  value += A[r * K + k] * B[k * N + c];  &#125;</span><br><span class="line">	C[r * N + c] = value;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>矩阵分块计算：blockTileGEMM</strong><br>在navieGEMM实现中,同一个warp访问的是矩阵A的同一个元素,这里访问了重复元素</p>
+<blockquote>
+<p>同一个warp中<code>threadIdx.y</code>不变–&gt;r不变,那么A[r*K+k]也不会变   </p>
+</blockquote>
+<p>为了提高带宽,减少对global memory的访问量,所以将需要重复读取的数据转移到shared memory中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 每个 Block 负责计算 C 中 (Bm, Bn) 大小的分块 tileC</span></span><br><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="type">int</span> Bm </span>= <span class="number">128</span>, <span class="type">int</span> Bn = <span class="number">128</span>, <span class="type">int</span> Bk = <span class="number">8</span>, <span class="type">int</span> blockSize = <span class="number">256</span>, <span class="type">int</span> A_BLOCK_X = <span class="number">8</span>,</span><br><span class="line">		 <span class="type">int</span> B_BLOCK_X = <span class="number">32</span>, <span class="type">int</span> C_BLOCK_X = <span class="number">16</span>&gt;</span><br><span class="line">__global__ <span class="type">void</span> <span class="built_in">blockTileGEMM</span>(<span class="type">float</span>* A, <span class="type">float</span>* B, <span class="type">float</span>* C, <span class="type">const</span> <span class="type">int</span> M, <span class="type">const</span> <span class="type">int</span> K, <span class="type">const</span> <span class="type">int</span> N) &#123;</span><br><span class="line">  __shared__ <span class="type">float</span> As[Bm][Bk];  <span class="comment">// 存储 tileA</span></span><br><span class="line">  __shared__ <span class="type">float</span> Bs[Bk][Bn];  <span class="comment">// 存储 tileB</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 计算 block 负责的 tileC 左上角元素的行列坐标 </span></span><br><span class="line">  <span class="comment">// 获得每个 block 在矩阵中的起始位置</span></span><br><span class="line">  <span class="type">int</span> r0 = blockIdx.y * Bm;</span><br><span class="line">  <span class="type">int</span> c0 = blockIdx.x * Bn;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 当前 thread 的编号（默认为一维 block 配置）</span></span><br><span class="line">  <span class="type">int</span> tid = threadIdx.x;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/*------ tileA ------*/</span></span><br><span class="line">  <span class="comment">// 写入 A tile 时，block 中 thread 排布尺寸为 (A_BLOCK_X, blockSize / A_BLOCK_X) = (8, 32)</span></span><br><span class="line">  <span class="keyword">constexpr</span> <span class="type">int</span> A_BLOCK_Y = blockSize / A_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 对于 tid 号线程，其位于 blockA 中的行列坐标为 (tid / A_BLOCK_X, tid % A_BLOCK_X)</span></span><br><span class="line">  <span class="type">int</span> A_THREAD_Y = tid / A_BLOCK_X;</span><br><span class="line">  <span class="type">int</span> A_THREAD_X = tid % A_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/*------ tileB ------*/</span></span><br><span class="line">  <span class="comment">// 写入 B tile 时，block 中 thread 排布尺寸为 (B_BLOCK_X, blockSize / B_BLOCK_X) = (32, 8)</span></span><br><span class="line">  <span class="keyword">constexpr</span> <span class="type">int</span> B_BLOCK_Y = blockSize / B_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 对于 tid 号线程，其位于 blockB 中的行列坐标为 (tid / B_BLOCK_X, tid % B_BLOCK_X)</span></span><br><span class="line">  <span class="type">int</span> B_THREAD_Y = tid / B_BLOCK_X;</span><br><span class="line">  <span class="type">int</span> B_THREAD_X = tid % B_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/*------ tileC ------*/</span></span><br><span class="line">  <span class="keyword">constexpr</span> <span class="type">int</span> C_BLOCK_Y = blockSize / C_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 对于 tid 号线程，其位于 blockC 中的行列坐标为 (tid / C_BLOCK_X, tid % C_BLOCK_X)</span></span><br><span class="line">  <span class="type">int</span> C_THREAD_Y = tid / C_BLOCK_X;</span><br><span class="line">  <span class="type">int</span> C_THREAD_X = tid % C_BLOCK_X;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 每个 thread 负责 Tm * Tn 个元素计算</span></span><br><span class="line">  <span class="keyword">constexpr</span> <span class="type">int</span> Tm = Bm / C_BLOCK_Y;</span><br><span class="line">  <span class="keyword">constexpr</span> <span class="type">int</span> Tn = Bn / C_BLOCK_X;</span><br><span class="line">  <span class="type">float</span> Ct[Tm][Tn] = &#123;<span class="number">0.0</span>&#125;;  <span class="comment">//存储相乘数据 累加得到最后结果</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// K- Loop</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> k = <span class="number">0</span>; k &lt; K; k += Bk) &#123;</span><br><span class="line">	<span class="comment">/* ------ 读取 global memory，存入 shared memory ------ */</span></span><br><span class="line">	<span class="comment">// 使用跨步循环，行方向的 stride 为 A_BLOCK_Y, 列方向的 stride 为 A_BLOCK_X</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = A_THREAD_Y; i &lt; Bm; i += A_BLOCK_Y) &#123;</span><br><span class="line">	  <span class="type">int</span> r = r0 + i;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	  <span class="keyword">for</span> (<span class="type">int</span> j = A_THREAD_X; j &lt; Bk; j += A_BLOCK_X) &#123;</span><br><span class="line">		<span class="type">int</span> c = k + j;</span><br><span class="line">		As[i][j] = (r &lt; M &amp;&amp; c &lt; K) ? A[r * K + c] : <span class="number">0.f</span>;</span><br><span class="line">	  &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 使用跨步循环，行方向的 stride 为 B_BLOCK_Y, 列方向的 stride 为 B_BLOCK_X</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = B_THREAD_Y; i &lt; Bk; i += B_BLOCK_Y) &#123;</span><br><span class="line">	  <span class="type">int</span> r = k + i;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	  <span class="keyword">for</span> (<span class="type">int</span> j = B_THREAD_X; j &lt; Bn; j += B_BLOCK_X) &#123;</span><br><span class="line">		<span class="type">int</span> c = c0 + j;</span><br><span class="line">		Bs[i][j] = (r &lt; K &amp;&amp; c &lt; N) ? B[r * N + c] : <span class="number">0.f</span>;</span><br><span class="line">	  &#125;</span><br><span class="line">	&#125;   </span><br><span class="line">		 </span><br><span class="line">	__syncthreads();</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* ------ 计算 tileA * tileB ------ */</span></span><br><span class="line">	<span class="comment">// 先循环 k 维度，按向量外积的方式计算</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> p = <span class="number">0</span>; p &lt; Bk; ++p) &#123;</span><br><span class="line">	  <span class="comment">// 使用跨步循环，行方向的 stride 为 C_BLOCK_Y, 列方向的 stride 为 C_BLOCK_X</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm; ++i) &#123;</span><br><span class="line">		<span class="type">int</span> r = C_THREAD_Y + i * C_BLOCK_Y;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">		<span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn; ++j) &#123;</span><br><span class="line">		  <span class="type">int</span> c = C_THREAD_X + j * C_BLOCK_X;</span><br><span class="line">		  Ct[i][j] += As[r][p] * Bs[p][c];  <span class="comment">//累加 不会覆盖数据</span></span><br><span class="line">		&#125; </span><br><span class="line">	  &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	__syncthreads();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 将 Ct 写入 C</span></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm; ++i) &#123;</span><br><span class="line">	<span class="type">int</span> r = r0 + C_THREAD_Y + i * C_BLOCK_Y;</span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> unroll</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn; ++j) &#123;</span><br><span class="line">	  <span class="type">int</span> c = c0 + C_THREAD_X + j * C_BLOCK_X;</span><br><span class="line"></span><br><span class="line">	  <span class="keyword">if</span> (r &lt; M &amp;&amp; c &lt; N) &#123; C[r * N + c] = Ct[i][j]; &#125;</span><br><span class="line">	&#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>总流程: 首先 先拷贝数据到sharedMem,但是Bm<code>*</code>Bn太大了,sharedMem放不下,所以切片,</p>
+<p><strong>线程分块运算: threadTileGEMM</strong></p>
+<img src="4C892D369BB1B52FEDBE31CD51A61D39.png" alt="4C892D369BB1B52FEDBE31CD51A61D39" style="zoom: 25%;" />
+
+<p>将tileA与tileB的乘积运算优化</p>
+<ul>
+<li>使用register存储sharedmemory 中的数据，提高带宽；</li>
+<li>p-Loop，每个thread计算subA(Tm<code>*</code>Bk)和subB(Bk<code>*</code>Tn)矩阵相乘，累加计算结果。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// before K-Loop</span></span><br><span class="line"><span class="comment">// 存储 A 中列向量和 B 中行向量</span></span><br><span class="line"><span class="type">float</span> regA[Tm] = &#123;<span class="number">0.0f</span>&#125;;</span><br><span class="line"><span class="type">float</span> regB[Tn] = &#123;<span class="number">0.0f</span>&#125;;</span><br><span class="line"><span class="comment">//===============================</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/*in K-LOOP*/</span></span><br><span class="line"><span class="comment">//p-loop中 tileA按列,tileB按行 具体看图一小条乘一小条</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> p = <span class="number">0</span>; p &lt; Bk; ++p) &#123;</span><br><span class="line">  <span class="comment">// 存储 A 中列向量到 regA</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm; ++i) &#123;</span><br><span class="line">    <span class="type">int</span> r = C_THREAD_Y + i * C_BLOCK_Y;</span><br><span class="line">    regA[i] = As[r][p];</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 存储 B 中行向量到 regB</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn; ++j) &#123;</span><br><span class="line">    <span class="type">int</span> c = C_THREAD_X + j * C_BLOCK_X;</span><br><span class="line">    regB[j] = Bs[p][c];</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 计算 regA 与 regB 的向量外积</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm; ++i) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn; ++j) &#123; Ct[i][j] += regA[i] * regB[j]; &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>调整warp尺寸: warpGEMM</strong></p>
+<blockquote>
+<p>CUDA 是 SIMT 的执行模式，warp 是最小执行单元，在分析访存的时候要从 warp 的角度进行</p>
+</blockquote>
+<p>Cblock(16,16)的warp默认设置为(16,2),由于sharedMem的广播机制,一个warp读取tileA 2个float,tileB 16个float数据<br>想要实现最大的计算访存比，应该尽量让Cblock中Wx+Wy的值变小,要么8<code>*</code>4,要么4<code>*</code>8,这里取8<code>*4</code><br><code>int C_WARP_X = 8, int C_WARP_Y = 4</code><br>那么将上个优化中的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 对于 tid 号线程，其位于 blockC 中的行列坐标为 (tid / C_BLOCK_X, tid % C_BLOCK_X)</span></span><br><span class="line"><span class="type">int</span> C_THREAD_Y = tid / C_BLOCK_X;</span><br><span class="line"><span class="type">int</span> C_THREAD_X = tid % C_BLOCK_X;</span><br></pre></td></tr></table></figure>
+
+<p>替换为</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 按 8*4 排列 warp</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 计算当前 thread 属于哪个 warp，第几个 lane</span></span><br><span class="line"><span class="type">int</span> warpId = tid / WARP_SIZE;</span><br><span class="line"><span class="type">int</span> laneId = tid % WARP_SIZE;</span><br><span class="line"><span class="comment">// 计算总共有几行几列 warp</span></span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> C_WARP_DIM_X = C_BLOCK_X / C_WARP_X;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 计算当前 thread 所在 warp 在 block 中的 x, y 坐标</span></span><br><span class="line"><span class="type">int</span> warpX = warpId % C_WARP_DIM_X;</span><br><span class="line"><span class="type">int</span> warpY = warpId / C_WARP_DIM_X;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 计算当前 thread 在 warp 中的 x, y 坐标</span></span><br><span class="line"><span class="type">int</span> laneY = laneId / C_WARP_X;</span><br><span class="line"><span class="type">int</span> laneX = laneId % C_WARP_X;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 当前 thread 在 blockC 中的行列坐标为 (warpY * C_WARP_Y + laneY, warpX * C_WARP_X + laneX)</span></span><br><span class="line"><span class="type">int</span> C_THREAD_Y = warpY * C_WARP_Y + laneY;</span><br><span class="line"><span class="type">int</span> C_THREAD_X = warpX * C_WARP_X + laneX;</span><br></pre></td></tr></table></figure>
+
+<img src="v2-ed428f66b3aa034fc117c5e3d76476e1_1440w.jpg" alt="img" style="zoom: 50%;" />
+
+<p>regA 和 regB 数据的读取过程可以概括为：<br>在同一列读取 As 中的 8 个数据，相邻数据间隔 C_BLOCK_Y 行；<br>在同一行读取 Bs 中的 8 个数据，相邻数据间隔 C_BLOCK_X 列。</p>
+<p>更改了Cblock内warp的布局,同时改变了执行模型,在该优化中,计算单位从block变为warp,必须显式控制warp中32个线程的二维形状<br>这么做就是手动控制warp的形状,提高计算访存比</p>
+<p><strong>向量化读取sharedmemory：float4GEMM</strong><br>向量化访存可以通过一条指令读取多个数据，以 float 为例，目前CUDA最高支持一条指令请求 4 个 float 数据（借助内置的 float4 类型）。降低指令数量，缓解GPU硬件层面聚合访存的压力。<br><strong>前提</strong>：数据地址要按照float4对齐</p>
+<p>而在读取矩阵AB数据到sharedmemory的时候不能用向量化存储,因为不知道矩阵AB具体大小,列不一定是4的倍数<br>所以不能用<br>但是存进去了就是4的整数倍 可以采用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// in p-Loop</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 存储 A 中列向量到 regA</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm; ++i) &#123;</span><br><span class="line">  <span class="type">int</span> r = C_THREAD_Y + i * C_BLOCK_Y;</span><br><span class="line">  regA[i] = As[r][p];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 存储 B 中行向量到 regB</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn; ++j) &#123;</span><br><span class="line">  <span class="type">int</span> c = C_THREAD_X + j * C_BLOCK_X;</span><br><span class="line">  regB[j] = Bs[p][c];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是regA取数据是按一列8个来取的 所以这里要进行tileA的转置</p>
+<ol>
+<li>在申请As的时候,交换维度大小<br> <code>__shared__ float As[Bk][Bm];</code></li>
+<li>写入As时,交换i,j索引顺序</li>
+</ol>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// in K-Loop</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用跨步循环，行方向的 stride 为 A_BLOCK_Y, 列方向的 stride 为 A_BLOCK_X</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = A_THREAD_Y; i &lt; Bm; i += A_BLOCK_Y) &#123;</span><br><span class="line">  <span class="type">int</span> r = r0 + i;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> j = A_THREAD_X; j &lt; Bk; j += A_BLOCK_X) &#123;</span><br><span class="line">    <span class="type">int</span> c = k + j;</span><br><span class="line">    As[j][i] = (r &lt; M &amp;&amp; c &lt; K) ? A[r * K + c] : <span class="number">0.f</span>; <span class="comment">// 转置 其实也就这里As写入改了下位置,其他不变</span></span><br><span class="line">  &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>存到寄存器的时候,循环次数减少4倍,单个线程到下一个数据间距增大四倍</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// in p-Loop</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 向量化访存，存储 A 中列向量到 regA</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; Tm / <span class="number">4</span>; ++i) &#123;</span><br><span class="line">  <span class="type">int</span> r = (C_THREAD_Y + i * C_BLOCK_Y) * <span class="number">4</span>;</span><br><span class="line">  <span class="built_in">FLOAT4</span>(regA[i * <span class="number">4</span>]) = <span class="built_in">FLOAT4</span>(As[p][r]);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 向量化访存，存储 B 中行向量到 regB</span></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; Tn / <span class="number">4</span>; ++j) &#123;</span><br><span class="line">  <span class="type">int</span> c = (C_THREAD_X + j * C_BLOCK_X) * <span class="number">4</span>;</span><br><span class="line">  <span class="built_in">FLOAT4</span>(regB[j * <span class="number">4</span>]) = <span class="built_in">FLOAT4</span>(Bs[p][c]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>参考文章</strong>:</p>
+<p><a target="_blank" rel="noopener" href="https://face2ai.com/program-blog/#GPU%E7%BC%96%E7%A8%8B%EF%BC%88CUDA%EF%BC%89">谭升博客</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/CUDA/" rel="tag"># CUDA</a>
+              <a href="/tags/GPU/" rel="tag"># GPU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/01/22/LLVM-IR/" rel="prev" title="LLVM IR">
+      <i class="fa fa-chevron-left"></i> LLVM IR
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/02/03/C++%E9%9A%8F%E7%AC%94/" rel="next" title="C++随笔">
+      C++随笔 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#warp%E4%B8%8EBlock"><span class="nav-number">1.</span> <span class="nav-text">warp与Block:</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E8%AF%84%E5%88%A4%E6%8C%87%E6%A0%87"><span class="nav-number">1.1.</span> <span class="nav-text">性能评判指标:</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B9%B6%E8%A1%8C%E8%A7%84%E7%BA%A6"><span class="nav-number">1.2.</span> <span class="nav-text">并行规约</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B5%8C%E5%A5%97%E6%89%A7%E8%A1%8C"><span class="nav-number">1.3.</span> <span class="nav-text">嵌套执行</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E5%AD%98"><span class="nav-number">2.</span> <span class="nav-text">内存</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%8D%E5%B1%9E%E4%BA%8E%E5%85%A8%E5%B1%80%E5%86%85%E5%AD%98%EF%BC%88%E7%89%87%E4%B8%8A%EF%BC%89%EF%BC%9A"><span class="nav-number">2.1.</span> <span class="nav-text">不属于全局内存（片上）：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B1%9E%E4%BA%8E%E5%85%A8%E5%B1%80%E5%86%85%E5%AD%98%EF%BC%88%E6%9C%80%E7%BB%88%E9%83%BD%E5%AD%98%E5%82%A8%E5%9C%A8-DRAM-%E6%98%BE%E5%AD%98-%E4%B8%AD%EF%BC%89%EF%BC%9A"><span class="nav-number">2.2.</span> <span class="nav-text">属于全局内存（最终都存储在 DRAM (显存)中）：</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86"><span class="nav-number">2.3.</span> <span class="nav-text">内存管理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E4%BC%A0%E8%BE%93"><span class="nav-number">2.4.</span> <span class="nav-text">内存传输</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9B%BA%E5%AE%9A%E5%86%85%E5%AD%98"><span class="nav-number">2.5.</span> <span class="nav-text">固定内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%9B%B6%E6%8B%B7%E8%B4%9D%E5%86%85%E5%AD%98"><span class="nav-number">2.6.</span> <span class="nav-text">零拷贝内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link"><span class="nav-number">2.7.</span> <span class="nav-text"></span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%93%E5%AD%98"><span class="nav-number">3.</span> <span class="nav-text">缓存</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%9F%A9%E9%98%B5%E8%BD%AC%E7%BD%AE"><span class="nav-number">3.1.</span> <span class="nav-text">矩阵转置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AF%B9%E8%A7%92%E8%BD%AC%E7%BD%AE%EF%BC%9A%E8%AF%BB%E5%8F%96%E8%A1%8C%E4%B8%8E%E8%AF%BB%E5%8F%96%E5%88%97"><span class="nav-number">3.2.</span> <span class="nav-text">对角转置：读取行与读取列</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98"><span class="nav-number">4.</span> <span class="nav-text">共享内存</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E5%A1%AB%E5%85%85%EF%BC%88padding%EF%BC%89"><span class="nav-number">4.1.</span> <span class="nav-text">内存填充（padding）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BF%E9%97%AE%E6%A8%A1%E5%BC%8F%E8%AE%BE%E7%BD%AE"><span class="nav-number">4.2.</span> <span class="nav-text">访问模式设置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98"><span class="nav-number">4.3.</span> <span class="nav-text">配置共享内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%90%8C%E6%AD%A5"><span class="nav-number">4.4.</span> <span class="nav-text">同步:</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B5%81%E5%92%8C%E4%BA%8B%E4%BB%B6"><span class="nav-number">5.</span> <span class="nav-text">流和事件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#CUDA%E4%BA%8B%E4%BB%B6"><span class="nav-number">5.1.</span> <span class="nav-text">CUDA事件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%B8%E8%A7%81%E7%AE%97%E5%AD%90"><span class="nav-number">6.</span> <span class="nav-text">常见算子</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#elementwise-%E9%80%90%E5%85%83%E7%B4%A0"><span class="nav-number">6.1.</span> <span class="nav-text">elementwise(逐元素)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9C%B4%E7%B4%A0%E5%86%99%E6%B3%95"><span class="nav-number">6.1.1.</span> <span class="nav-text">朴素写法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%BD%91%E6%A0%BC%E8%B7%A8%E6%AD%A5%E5%BE%AA%E7%8E%AF"><span class="nav-number">6.1.2.</span> <span class="nav-text">网格跨步循环</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Vectorized-Memory-Access%EF%BC%88%E5%90%91%E9%87%8F%E5%8C%96%E8%AE%BF%E5%AD%98%EF%BC%89"><span class="nav-number">6.1.3.</span> <span class="nav-text">Vectorized Memory Access（向量化访存）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Transpose-%E8%BD%AC%E7%BD%AE"><span class="nav-number">6.2.</span> <span class="nav-text">Transpose(转置)</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9C%B4%E7%B4%A0%E5%86%99%E6%B3%95-1"><span class="nav-number">6.2.1.</span> <span class="nav-text">朴素写法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%80%E4%B8%AAthread%E8%B4%9F%E8%B4%A3%E5%A4%9A%E4%B8%AA%E5%85%83%E7%B4%A0"><span class="nav-number">6.2.2.</span> <span class="nav-text">一个thread负责多个元素</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98-1"><span class="nav-number">6.2.3.</span> <span class="nav-text">共享内存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#swizzling-%E5%8E%BBbank-conflicts"><span class="nav-number">6.2.4.</span> <span class="nav-text">swizzling 去bank conflicts</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CUDA-reduce-%E7%AE%97%E5%AD%90"><span class="nav-number">6.3.</span> <span class="nav-text">CUDA reduce 算子</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9C%B4%E7%B4%A0%E5%AE%9E%E7%8E%B0"><span class="nav-number">6.3.1.</span> <span class="nav-text">朴素实现</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CUDAgemm%E7%AE%97%E5%AD%90"><span class="nav-number">6.4.</span> <span class="nav-text">CUDAgemm算子</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Glcyx"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Glcyx</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/Glcyx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glcyx" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/884478769@qq.com" title="E-Mail → 884478769@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glcyx</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
+
+<script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+          load: ['[tex]/mhchem'],
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+          packages: {'[+]': ['mhchem']},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+    
+
+  
+
+</body>
+</html>
