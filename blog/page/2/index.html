@@ -22,13 +22,13 @@
 
   <meta property="og:type" content="website">
 <meta property="og:title" content="Glcyx的博客">
-<meta property="og:url" content="https://glcyx.github.io/page/2/index.html">
+<meta property="og:url" content="https://glcyx.github.io/blog/page/2/index.html">
 <meta property="og:site_name" content="Glcyx的博客">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:author" content="Glcyx">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="https://glcyx.github.io/page/2/">
+<link rel="canonical" href="https://glcyx.github.io/blog/page/2/">
 
 
 <script id="page-configurations">
@@ -118,14 +118,14 @@
 
 <nav class="site-nav">
   <ul id="menu" class="main-menu menu">
-        <li class="menu-item menu-item-home">
-
-    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
-
-  </li>
         <li class="menu-item menu-item-about">
 
     <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-blog">
+
+    <a href="/blog/" rel="section"><i class="fa fa-book-open fa-fw"></i>blog</a>
 
   </li>
         <li class="menu-item menu-item-tags">
@@ -166,6 +166,883 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/" class="post-title-link" itemprop="url">CSE.cpp阅读</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-02-27 20:08:41" itemprop="dateCreated datePublished" datetime="2026-02-27T20:08:41+08:00">2026-02-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-20 15:28:02" itemprop="dateModified" datetime="2026-04-20T15:28:02+08:00">2026-04-20</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p><a target="_blank" rel="noopener" href="https://github.com/llvm/llvm-project/blob/main/mlir/lib/Transforms/CSE.cpp">CSE.cpp</a></p>
+<p>这个<code>pass</code>也非常常见,平时经常就是<code>canonicalize</code>后面跟一个<code>cse</code></p>
+<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><h3 id="目的"><a href="#目的" class="headerlink" title="目的:"></a>目的:</h3><p><code>CSE</code>也就是<code>Common Subexpression Elimination</code></p>
+<p>核心目标就是消除重复计算</p>
+<p>如果两个<code>op</code></p>
+<ul>
+<li>操作类型相同</li>
+<li>操作数相同</li>
+<li>属性相同</li>
+<li>没有会影响结果的副作用</li>
+</ul>
+<p>那么后一个<code>op</code>就没必要再算一次,直接复用前一个结果就行</p>
+<h3 id="命令行参数"><a href="#命令行参数" class="headerlink" title="命令行参数"></a>命令行参数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">StringRef <span class="title">getArgument</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123; <span class="keyword">return</span> <span class="string">&quot;cse&quot;</span>; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行命令就是</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mlir-opt xxx.mlir -cse</span><br></pre></td></tr></table></figure>
+
+<h2 id="一个最简单的理解"><a href="#一个最简单的理解" class="headerlink" title="一个最简单的理解"></a>一个最简单的理解</h2><p>例如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%0 = arith.addi %a, %b : i32</span><br><span class="line">%1 = arith.addi %a, %b : i32</span><br></pre></td></tr></table></figure>
+
+<p>如果这两个<code>op</code>都没有副作用,那么第二个就可以删掉,把<code>%1</code>的使用点都替换成<code>%0</code></p>
+<p>这个思想本身不复杂,但真正做的时候要考虑:</p>
+<ul>
+<li>支配关系</li>
+<li>region &#x2F; block 层级</li>
+<li>带副作用的op不能乱合并</li>
+</ul>
+<h2 id="核心逻辑"><a href="#核心逻辑" class="headerlink" title="核心逻辑"></a>核心逻辑</h2><h3 id="不是简单全局哈希一下就结束"><a href="#不是简单全局哈希一下就结束" class="headerlink" title="不是简单全局哈希一下就结束"></a>不是简单全局哈希一下就结束</h3><p>第一眼可能会觉得</p>
+<blockquote>
+<p>那不就是给op做个hash,一样的就替换</p>
+</blockquote>
+<p>但实际上不行</p>
+<p>因为前面的op必须能支配后面的op</p>
+<p>也就是说 你要替换一个结果,前提是原来那个结果在控制流上对当前点可见</p>
+<p>所以这个<code>pass</code>要结合遍历顺序和作用域结构来做</p>
+<h3 id="遍历方式"><a href="#遍历方式" class="headerlink" title="遍历方式"></a>遍历方式</h3><p>这个文件里会递归处理 operation &#x2F; region &#x2F; block</p>
+<p>因为MLIR IR本身就是嵌套结构,不是简单一层线性指令</p>
+<p>所以<code>CSE</code>不能只看一个block里的相邻语句,而是要在合法支配范围内维护“当前已经见过且可复用的表达式”</p>
+<h3 id="hasNoSideEffect-这种判断非常关键"><a href="#hasNoSideEffect-这种判断非常关键" class="headerlink" title="hasNoSideEffect 这种判断非常关键"></a><code>hasNoSideEffect</code> 这种判断非常关键</h3><p>重复表达式消除有个前提</p>
+<blockquote>
+<p>这个op要足够“纯”</p>
+</blockquote>
+<p>比如:</p>
+<ul>
+<li>常量</li>
+<li>加法</li>
+<li>一些纯计算</li>
+</ul>
+<p>这些是可以合并的</p>
+<p>但如果一个op会:</p>
+<ul>
+<li>写内存</li>
+<li>读取某些会变化的状态</li>
+<li>产生外部可观察副作用</li>
+</ul>
+<p>那就不能简单认为“长得一样所以结果一样”</p>
+<p>这也是<code>CSE</code>和普通文本去重完全不是一回事的原因</p>
+<h2 id="值得注意的地方"><a href="#值得注意的地方" class="headerlink" title="值得注意的地方"></a>值得注意的地方</h2><h3 id="block-argument-不能乱动"><a href="#block-argument-不能乱动" class="headerlink" title="block argument 不能乱动"></a>block argument 不能乱动</h3><p><code>CSE</code>主要处理的是重复<code>op</code></p>
+<p>而不是把所有值都拿来乱合并</p>
+<p>像<code>BlockArgument</code>这种值来源就不是某个具体<code>op</code>,所以处理逻辑本来就不同</p>
+<h3 id="region嵌套时作用域会变化"><a href="#region嵌套时作用域会变化" class="headerlink" title="region嵌套时作用域会变化"></a>region嵌套时作用域会变化</h3><p>MLIR里一个operation内部还能套region</p>
+<p>所以进入一个新的region时,你要考虑:</p>
+<ul>
+<li>外层有哪些值是可见的</li>
+<li>当前层新增了哪些可候选的表达式</li>
+<li>离开作用域后哪些东西不能继续拿来复用</li>
+</ul>
+<p>这个文件一个比较重要的点就是把这种嵌套结构里的可用表达式管理起来</p>
+<h3 id="死代码删除会顺手发生"><a href="#死代码删除会顺手发生" class="headerlink" title="死代码删除会顺手发生"></a>死代码删除会顺手发生</h3><p>当后一个重复op被替换掉以后,它自己就没用了</p>
+<p>这时候就可以被删掉</p>
+<p>所以<code>CSE</code>看起来只是“合并重复表达式”,实际上最后效果经常会让IR明显短一截</p>
+<h2 id="为什么经常接在canonicalize后面"><a href="#为什么经常接在canonicalize后面" class="headerlink" title="为什么经常接在canonicalize后面"></a>为什么经常接在<code>canonicalize</code>后面</h2><p>因为<code>canonicalize</code>经常会把IR整理成更规范的形式</p>
+<p>比如原本写法不同但语义等价的东西,先被整理成统一样子</p>
+<p>这时候再跑<code>CSE</code>,就更容易识别出“你们两个其实一样”</p>
+<p>所以顺序上:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">canonicalize -&gt; cse</span><br></pre></td></tr></table></figure>
+
+<p>很常见</p>
+<p>如果中间又生成了新的可简化形式,后面甚至再补一个<code>canonicalize</code></p>
+<h2 id="对自己写优化有什么帮助"><a href="#对自己写优化有什么帮助" class="headerlink" title="对自己写优化有什么帮助"></a>对自己写优化有什么帮助</h2><p>我觉得看这个文件主要是提醒自己:</p>
+<h3 id="第一-不是所有重复长相的op都能合并"><a href="#第一-不是所有重复长相的op都能合并" class="headerlink" title="第一,不是所有重复长相的op都能合并"></a>第一,不是所有重复长相的op都能合并</h3><p>要先看支配关系和副作用</p>
+<h3 id="第二-优化pass之间是会互相喂机会的"><a href="#第二-优化pass之间是会互相喂机会的" class="headerlink" title="第二,优化pass之间是会互相喂机会的"></a>第二,优化pass之间是会互相喂机会的</h3><p>一个pass并不需要把所有事情做完</p>
+<p>它只要把IR往更规范、更简洁的方向推一步,后面的pass就可能继续接力</p>
+<h3 id="第三-MLIR里很多“常规优化”其实已经有现成pass"><a href="#第三-MLIR里很多“常规优化”其实已经有现成pass" class="headerlink" title="第三,MLIR里很多“常规优化”其实已经有现成pass"></a>第三,MLIR里很多“常规优化”其实已经有现成pass</h3><p>所以自己写pipeline的时候,不用每次都从零开始造轮子</p>
+<p>像</p>
+<ul>
+<li><code>canonicalize</code></li>
+<li><code>cse</code></li>
+</ul>
+<p>这种基础pass先接上,很多中间垃圾会自己少很多</p>
+<h2 id="一个整体印象"><a href="#一个整体印象" class="headerlink" title="一个整体印象"></a>一个整体印象</h2><p><code>CSE.cpp</code>读下来没有那种特别花的技巧,但很典型</p>
+<p>它体现的是编译器里一个很基础但是很重要的思路:</p>
+<blockquote>
+<p>在保证语义不变的前提下,不要重复做同样的计算</p>
+</blockquote>
+<p>而MLIR把这件事放在嵌套IR结构里来做,所以比单block文本理解要更有意思一点</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/18/GreedyPatternRewriteDriver-cpp%E9%98%85%E8%AF%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2026/02/18/GreedyPatternRewriteDriver-cpp%E9%98%85%E8%AF%BB/" class="post-title-link" itemprop="url">GreedyPatternRewriteDriver.cpp阅读</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-02-18 22:41:03" itemprop="dateCreated datePublished" datetime="2026-02-18T22:41:03+08:00">2026-02-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-20 15:28:02" itemprop="dateModified" datetime="2026-04-20T15:28:02+08:00">2026-04-20</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p><a target="_blank" rel="noopener" href="https://github.com/llvm/llvm-project/blob/main/mlir/lib/Transforms/Utils/GreedyPatternRewriteDriver.cpp">GreedyPatternRewriteDriver.cpp</a></p>
+<p>这个文件其实我觉得挺重要的,因为前面看很多pass的时候都会碰到</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">applyPatternsGreedily</span>(op, std::<span class="built_in">move</span>(patterns))</span><br></pre></td></tr></table></figure>
+
+<p>平时老在用,但它里面到底怎么组织这些pattern,还是值得单独看一下</p>
+<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><h3 id="目的"><a href="#目的" class="headerlink" title="目的:"></a>目的:</h3><p>这个文件实现的是MLIR里“贪心pattern重写”的驱动逻辑</p>
+<p>也就是:</p>
+<ul>
+<li>你把一堆pattern塞进去</li>
+<li>它负责不断找能匹配的op</li>
+<li>一旦匹配成功就重写</li>
+<li>重写后继续看有没有新的机会</li>
+<li>直到整个IR收敛</li>
+</ul>
+<p>所以它本身不是某个具体优化,而是一个基础设施</p>
+<p>很多pass其实都只是:</p>
+<ol>
+<li>准备pattern</li>
+<li>调这个driver</li>
+</ol>
+<h3 id="为什么叫greedy"><a href="#为什么叫greedy" class="headerlink" title="为什么叫greedy"></a>为什么叫greedy</h3><p>因为它的策略不是全局最优搜索,而是</p>
+<blockquote>
+<p>看到当前能改的,就先改</p>
+</blockquote>
+<p>改完以后再看周围还能不能继续改</p>
+<p>这种方式实现简单,而且对大多数局部重写场景很有效</p>
+<h2 id="核心接口"><a href="#核心接口" class="headerlink" title="核心接口"></a>核心接口</h2><p>最常见的入口就是</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">applyPatternsGreedily</span>(...)</span><br></pre></td></tr></table></figure>
+
+<p>平时在自己的pass里也经常这么写</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">RewritePatternSet <span class="title">patterns</span><span class="params">(ctx)</span></span>;</span><br><span class="line">patterns.<span class="built_in">add</span>&lt;...&gt;(ctx);</span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">failed</span>(<span class="built_in">applyPatternsGreedily</span>(<span class="built_in">getOperation</span>(), std::<span class="built_in">move</span>(patterns))))</span><br><span class="line">  <span class="built_in">signalPassFailure</span>();</span><br></pre></td></tr></table></figure>
+
+<p>所以看这个文件,本质上就是在看这一句背后到底干了什么</p>
+<h2 id="可以怎么理解这个driver"><a href="#可以怎么理解这个driver" class="headerlink" title="可以怎么理解这个driver"></a>可以怎么理解这个driver</h2><p>我觉得可以把它理解成一个“工作队列 + 不断回头看”的过程</p>
+<h3 id="第一步-初始化工作列表"><a href="#第一步-初始化工作列表" class="headerlink" title="第一步: 初始化工作列表"></a>第一步: 初始化工作列表</h3><p>先把当前作用范围里的op收集起来</p>
+<p>这些op就是潜在候选</p>
+<h3 id="第二步-依次尝试匹配pattern"><a href="#第二步-依次尝试匹配pattern" class="headerlink" title="第二步: 依次尝试匹配pattern"></a>第二步: 依次尝试匹配pattern</h3><p>对每个候选op</p>
+<ul>
+<li>看有没有pattern能匹配</li>
+<li>如果能匹配,就执行<code>matchAndRewrite</code></li>
+</ul>
+<h3 id="第三步-IR变了以后-附近op重新入队"><a href="#第三步-IR变了以后-附近op重新入队" class="headerlink" title="第三步: IR变了以后,附近op重新入队"></a>第三步: IR变了以后,附近op重新入队</h3><p>这个点很关键</p>
+<p>因为一次重写之后</p>
+<ul>
+<li>当前op可能没了</li>
+<li>新op可能产生了</li>
+<li>使用者可能变了</li>
+<li>定义者附近也可能出现新机会</li>
+</ul>
+<p>所以driver不是“一次遍历所有op”就结束</p>
+<p>而是会把受影响区域重新放回工作列表</p>
+<h3 id="第四步-直到没有pattern再能匹配"><a href="#第四步-直到没有pattern再能匹配" class="headerlink" title="第四步: 直到没有pattern再能匹配"></a>第四步: 直到没有pattern再能匹配</h3><p>这时就收敛了</p>
+<p>也就是所谓的fixpoint</p>
+<h2 id="这里为什么很适合MLIR"><a href="#这里为什么很适合MLIR" class="headerlink" title="这里为什么很适合MLIR"></a>这里为什么很适合MLIR</h2><p>因为MLIR很多优化都是局部变换</p>
+<p>例如:</p>
+<ul>
+<li>连续transpose合并</li>
+<li>冗余cast消掉</li>
+<li>常量折叠</li>
+<li>某些op组合成更简单形式</li>
+</ul>
+<p>这些都非常适合用pattern来描述</p>
+<p>而一旦你用pattern描述,就需要有一个统一driver帮你:</p>
+<ul>
+<li>管调度</li>
+<li>管重试</li>
+<li>管收敛</li>
+</ul>
+<p>这个文件就在做这些事</p>
+<h2 id="配置项也很值得注意"><a href="#配置项也很值得注意" class="headerlink" title="配置项也很值得注意"></a>配置项也很值得注意</h2><p>平时经常会写</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">GreedyRewriteConfig config;</span><br><span class="line">config.<span class="built_in">setStrictness</span>(GreedyRewriteStrictness::AnyOp);</span><br></pre></td></tr></table></figure>
+
+<p>这说明贪心重写不是完全写死的</p>
+<p>它还有一些策略配置</p>
+<p>比如:</p>
+<ul>
+<li>工作列表怎么处理</li>
+<li>哪些op允许反复参与</li>
+<li>region怎么简化</li>
+</ul>
+<p>所以<code>applyPatternsGreedily</code>虽然表面像一行函数,但实际上下面策略空间还是不少的</p>
+<h2 id="和自己写pattern的关系"><a href="#和自己写pattern的关系" class="headerlink" title="和自己写pattern的关系"></a>和自己写pattern的关系</h2><p>这个文件看完以后,会更清楚一件事:</p>
+<h3 id="pattern只负责“如果匹配了-要怎么改”"><a href="#pattern只负责“如果匹配了-要怎么改”" class="headerlink" title="pattern只负责“如果匹配了,要怎么改”"></a>pattern只负责“如果匹配了,要怎么改”</h3><p>比如:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(MyOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                              PatternRewriter &amp;rewriter)</span> <span class="type">const</span> <span class="keyword">override</span></span></span><br></pre></td></tr></table></figure>
+
+<p>这里你只要关心:</p>
+<ul>
+<li>这个op是不是我要的</li>
+<li>满足什么条件才改</li>
+<li>改成什么</li>
+</ul>
+<h3 id="driver负责“什么时候轮到你改”"><a href="#driver负责“什么时候轮到你改”" class="headerlink" title="driver负责“什么时候轮到你改”"></a>driver负责“什么时候轮到你改”</h3><p>比如:</p>
+<ul>
+<li>当前op有没有进入工作列表</li>
+<li>改完之后哪些地方要重新看</li>
+<li>重写是否已经收敛</li>
+</ul>
+<p>这样职责就分开了</p>
+<h2 id="为什么很多Pass喜欢走这条路"><a href="#为什么很多Pass喜欢走这条路" class="headerlink" title="为什么很多Pass喜欢走这条路"></a>为什么很多Pass喜欢走这条路</h2><p>因为比起自己手写遍历 + 手写多轮迭代 + 手写删除替换顺序控制</p>
+<p>直接走<code>RewritePatternSet + applyPatternsGreedily</code></p>
+<p>会省很多事</p>
+<p>尤其是当优化规则越来越多的时候,pattern化的组织方式会比手写一坨if&#x2F;else更清楚</p>
+<h2 id="一个比较直观的例子"><a href="#一个比较直观的例子" class="headerlink" title="一个比较直观的例子"></a>一个比较直观的例子</h2><p>比如前面如果我们写了一个pattern,目标是</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">transpose(transpose(x))</span><br><span class="line">-&gt; x</span><br></pre></td></tr></table></figure>
+
+<p>那么第一轮改完后,外围用户op可能又出现新的匹配机会</p>
+<p>这时候如果自己手动写遍历,经常要考虑:</p>
+<ul>
+<li>我是不是漏回头看了</li>
+<li>删除当前op后迭代器会不会炸</li>
+<li>新op要不要继续扫</li>
+</ul>
+<p>但driver已经把这些基础工作处理掉了</p>
+<p>所以自己就能更专注在规则本身</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这个文件虽然不是那种“具体某个pass优化了什么”的源码,但很基础</p>
+<p>它回答的是:</p>
+<blockquote>
+<p>MLIR里一大堆pattern到底是怎么真正跑起来的</p>
+</blockquote>
+<p>所以如果后面自己还要继续写</p>
+<ul>
+<li><code>OpRewritePattern</code></li>
+<li><code>canonicalization pattern</code></li>
+<li>一些小型局部优化pass</li>
+</ul>
+<p>那这个文件还是挺值得反复回来看一下的</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/03/C++%E9%9A%8F%E7%AC%94/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2026/02/03/C++%E9%9A%8F%E7%AC%94/" class="post-title-link" itemprop="url">C++随笔</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-02-03 16:02:06" itemprop="dateCreated datePublished" datetime="2026-02-03T16:02:06+08:00">2026-02-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-14 13:42:17" itemprop="dateModified" datetime="2026-04-14T13:42:17+08:00">2026-04-14</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">笔记</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="1-构造函数中不应进行IO操作"><a href="#1-构造函数中不应进行IO操作" class="headerlink" title="1. 构造函数中不应进行ＩＯ操作"></a>1. 构造函数中不应进行ＩＯ操作</h2><ul>
+<li><p>构造函数的主要目的是初始化对象的成员变量，而不是执行任何与对象外部交互的操作</p>
+<blockquote>
+<ol>
+<li><strong>不确定的对象状态</strong>：构造函数的执行是在对象创建的过程中进行的，此时对象可能还没有完全初始化。因此，在构造函数中执行 I&#x2F;O 操作可能导致对象处于不确定的状态，这可能会产生意外的行为或错误。</li>
+<li><strong>可维护性问题</strong>：将 I&#x2F;O 操作放在构造函数中可能会导致代码的可读性和可维护性下降。构造函数应该专注于初始化对象的成员变量，而不应该包含与对象初始化无关的逻辑。</li>
+<li><strong>性能问题</strong>：构造函数的主要任务是尽快完成对象的初始化过程。如果在构造函数中执行耗时的 I&#x2F;O 操作，可能会导致对象创建的时间变长，影响程序的性能。</li>
+</ol>
+</blockquote>
+</li>
+</ul>
+<h2 id="2-cin后面不能加endl"><a href="#2-cin后面不能加endl" class="headerlink" title="2. cin后面不能加endl"></a>2. cin后面不能加endl</h2><ul>
+<li>cin是istream类的对象,而endl是以ostream类对象为参数,返回ostream类对象的函数</li>
+<li>cin后接endl, istream::operator&gt;&gt; 的所有重载形式都没对上，自然会出错。</li>
+</ul>
+<h5 id="3-拷贝构造函数-const问题"><a href="#3-拷贝构造函数-const问题" class="headerlink" title="3. 拷贝构造函数 const问题"></a>3. 拷贝构造函数 const问题</h5><ul>
+<li><p>在编写拷贝构造函数时，参数列表中是否需要加上 <code>const</code> 取决于你的设计和需求。通常情况下，拷贝构造函数的参数应该是一个常量引用或者普通引用，而不是一个指针。这是因为拷贝构造函数的目的是创建一个新对象并将其初始化为另一个对象的副本，而不是修改原始对象。</p>
+<p>  如果你选择使用引用作为参数，建议将其声明为常量引用，这样可以确保不会修改原始对象的状态</p>
+</li>
+<li><p>如果你不使用 <code>const</code> 修饰符，编译器将会认为你有可能会修改原始对象的状态，这可能会导致不可预料的行为。因此，在编写拷贝构造函数时，最好将参数声明为 <code>const</code> 引用，以确保不会意外修改原始对象。</p>
+</li>
+<li><p>而隐式调用时不加const也没有出错在隐式调用时不加 <code>const</code> 并不会引发错误的原因可能是因为在该上下文中，编译器会自动推断出需要的 <code>const</code> 修饰符。这通常发生在一些特定的情况下，比如函数重载或者模板函数，编译器会根据参数类型自动推导是否需要添加 <code>const</code> 修饰符。另外，如果调用的函数或方法在其声明中声明为不修改对象的状态（即其成员函数是 const 成员函数），编译器也会默默地为该对象添加 const 修饰符，以确保对象不被修改</p>
+</li>
+<li><p>在我写析构函数的时候,释放堆空间中的对象时报错了,说是引发了异常: 读取访问权限冲突。 <strong>_Val</strong> 是 0xFFFFFFFFFFFFFFFF。</p>
+</li>
+<li><p>然后我就找这个项目之前的代码,当我把之前一个person类改为person3,就可以运行了,我再把person3改回来也没有报错,怎么回事呢? </p>
+</li>
+<li><p>卧槽 又来了</p>
+</li>
+<li><p>重复上述操作 又没了 ,太奇怪了</p>
+</li>
+<li><p>对于系统来说,任何类成员的直接访问都是被this隐式调用的</p>
+</li>
+</ul>
+<h2 id="4-关于返回类型为引用"><a href="#4-关于返回类型为引用" class="headerlink" title="4 .关于返回类型为引用"></a>4 .关于返回类型为引用</h2><ul>
+<li><p>当返回类型为引用时,我们可以用引用来接收,也可用普通变量来接收</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;pch.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">int</span> a = <span class="number">19</span>;</span><br><span class="line"><span class="function"><span class="type">int</span>&amp; <span class="title">lyy</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">return</span> a;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="type">int</span> b = <span class="built_in">lyy</span>();</span><br><span class="line">	<span class="type">int</span>&amp; c = <span class="built_in">lyy</span>();</span><br><span class="line">	cout &lt;&lt; b &lt;&lt; c &lt;&lt; endl;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>但倘若用引用对象来接受返回类型为普通变量类型时,就会出错</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;pch.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">int</span> a = <span class="number">19</span>;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">lyy</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">return</span> a;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="type">int</span> b = <span class="built_in">lyy</span>();</span><br><span class="line">	<span class="type">int</span>&amp; c = <span class="built_in">lyy</span>();   <span class="comment">//这里出现错误</span></span><br><span class="line">	cout &lt;&lt; b &lt;&lt; c &lt;&lt; endl;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>reason:</strong></p>
+</li>
+<li><p>当我们返回类型为普通类型时，例如int，被调函数结束的时候，会生成一个临时对象，然后return的内容拷贝给这个临时对象。这里为什么要生成临时对象呢？当被调函数执行完后，相应栈空间就会被释放，可能被重新分配，导致里面的内容消失，所以才会另外产生一个临时对象，来存储要返回的内容。当然不一定非要产生一个临时对象，也可以放到寄存器中短暂存储。只要能保证这个内容不会消失即可。然后将这个临时对象返回给主调函数。</p>
+</li>
+<li><p>但返回类型为引用时，例如int*,不会生成临时对象。会直接返回对象。所以呢，我们绝对不允许返回局部对象的引用。因为等到被调函数执行完毕后，这个局部变量都找不到了，还何谈引不引用？</p>
+</li>
+<li><p>当返回普通变量时，返回的时临时对象。对临时对象的引用可是非常危险的，所以呢，编译器不允许通过。</p>
+</li>
+<li><p>出错处相当于:  int&amp; c&#x3D;临时对象；</p>
+</li>
+</ul>
+<h5 id="5-可以用空指针调用成员函数-但是函数中一定不能出现this进行空间访问"><a href="#5-可以用空指针调用成员函数-但是函数中一定不能出现this进行空间访问" class="headerlink" title="5. 可以用空指针调用成员函数,但是函数中一定不能出现this进行空间访问"></a>5. 可以用空指针调用成员函数,但是函数中一定不能出现this进行空间访问</h5><h2 id="6-const-T-val和const-T-val"><a href="#6-const-T-val和const-T-val" class="headerlink" title="6.const T &amp;val和const T val"></a>6.<code>const T &amp;val</code>和<code>const T val</code></h2><p>在C++中，<code>const T &amp;val</code> 和 <code>const T val</code> 都是表示参数不应该被修改，但是它们之间有一些细微的差别：</p>
+<ol>
+<li><p><strong><code>const T &amp;val</code></strong>：这是一个常量引用。当你使用 <code>const T &amp;val</code> 作为参数时，你实际上是在创建一个对传入参数的引用，并且这个引用是常量，意味着你不能通过这个引用来改变原始数据。这种方式的优点是，它允许函数接受非常量对象的引用（通过添加 <code>const</code>），并且避免了对象的复制，这可以提高效率，尤其是当对象是大型数据结构时。</p>
+</li>
+<li><p><strong><code>const T val</code></strong>：这是一个常量对象。当你使用 <code>const T val</code> 作为参数时，你实际上是在函数内部创建了一个新的常量对象，它是传入参数的一个副本。这种方式的缺点是，如果传入的参数是一个大型数据结构，那么每次调用函数时都会进行复制，这可能会导致不必要的性能开销。</p>
+</li>
+</ol>
+<p>在大多数情况下，如果你不需要修改传入的数据，并且想要避免不必要的复制，那么 <code>const T &amp;val</code> 是更好的选择。然而，如果你需要确保函数内部的代码不会以任何方式改变传入的数据，并且不介意复制数据，那么 <code>const T val</code> 也是一个可行的选择。</p>
+<p>在你提供的代码中，<code>Insert</code> 函数的参数是 <code>const T &amp;val</code>，这是正确的，因为它允许函数接受一个常量引用，避免了不必要的复制，同时确保了传入的值不会被修改。如果你使用 <code>const T val</code>，那么每次调用 <code>Insert</code> 函数时，都会复制传入的值，这可能不是你想要的，尤其是在处理大型数据结构时。</p>
+<h2 id="7-不推荐使用auto-ptr"><a href="#7-不推荐使用auto-ptr" class="headerlink" title="7.不推荐使用auto_ptr"></a>7.不推荐使用auto_ptr</h2><ul>
+<li><p>尤其我们说在vector中 </p>
+<blockquote>
+<p>比如: </p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vector&lt;auto_ptr&lt;<span class="type">int</span>&gt;&gt; vct1;</span><br><span class="line">vector&lt;auto_ptr&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">vct2</span>(vct1);</span><br></pre></td></tr></table></figure>
+
+<p>那么vct1里面的所有智能指针都是nullptr</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="8-noexcept"><a href="#8-noexcept" class="headerlink" title="8. noexcept"></a>8. <code>noexcept</code></h2><ul>
+<li><p><code>noexcept</code> 是 C++11 引入的一个关键字，用于声明一个函数不会抛出异常。当你在一个函数声明的末尾添加 <code>noexcept</code>，你告诉编译器这个函数保证不会抛出任何异常。</p>
+<p>​</p>
+</li>
+</ul>
+<h2 id="9-右值引用-move-等"><a href="#9-右值引用-move-等" class="headerlink" title="9.右值引用,move()等"></a>9.右值引用,move()等</h2><p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/KillerAery/p/12802771.html">透彻理解C++11 移动语义：右值、右值引用、std::move、std::forward - KillerAery - 博客园</a></p>
+<h2 id="10-不带引用计数的智能指针"><a href="#10-不带引用计数的智能指针" class="headerlink" title="10. 不带引用计数的智能指针"></a>10. 不带引用计数的智能指针</h2><p>不推荐使用<code>auto_ptr  scoped_ptr</code>  </p>
+<p><code>unique_ptr</code>  提供了右值引用的拷贝构造函数和赋值运算符<code>=</code>的重载函数</p>
+<ul>
+<li><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">unique_ptr&lt;<span class="type">int</span>&gt; <span class="title">p1</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>)</span></span>;</span><br><span class="line"><span class="function">unique_ptr&lt;<span class="type">int</span>&gt; <span class="title">p2</span><span class="params">(std::move(p1))</span></span>;	<span class="comment">//可以使用move()</span></span><br></pre></td></tr></table></figure>
+
+  而<code>scoped_ptr</code>的拷贝构造函数和赋值运算符被<code>delete</code>掉了</li>
+</ul>
+<h2 id="11-用智能指针指向其他数据如-文件-时-需要自己自定义删除器-deleter"><a href="#11-用智能指针指向其他数据如-文件-时-需要自己自定义删除器-deleter" class="headerlink" title="11.用智能指针指向其他数据如(文件)时,需要自己自定义删除器(deleter)"></a>11.用智能指针指向其他数据如(文件)时,需要自己自定义删除器(deleter)</h2><ul>
+<li>因为文件要关闭而不是delete 掉 要自己封装deleter 然后fclose,(应该吧</li>
+<li></li>
+</ul>
+<h2 id="12-thread"><a href="#12-thread" class="headerlink" title="12. thread"></a>12. thread</h2><ul>
+<li><p>c++语言级别的thread类 其实底层还是调用系统的线程创建API</p>
+<blockquote>
+<p>windows: creadThread    Linux: pthread_create</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="13-using-namespace-std"><a href="#13-using-namespace-std" class="headerlink" title="13.using namespace std"></a>13.<code>using namespace std</code></h2><ul>
+<li><code>using namespace std;</code>在大型项目或多人协作的项目中，通常不推荐使用，因为它可能会导致名称冲突和代码可读性降低。在这些情况下，更倾向于使用 <code>std::</code> 前缀或局部的 <code>using</code> 声明来引入特定的名称。</li>
+<li><code>using namespace</code> 声明的生命周期取决于它被放置的位置，它的作用域从声明点开始，直到包含该声明的代码块或作用域的末尾。</li>
+</ul>
+<h2 id="14-unique-lock和lock-guard"><a href="#14-unique-lock和lock-guard" class="headerlink" title="14. unique_lock和lock_guard"></a>14. <code>unique_lock</code>和<code>lock_guard</code></h2><ul>
+<li><p><code>unique_lock</code> 提供了更多的灵活性，允许延迟锁定、尝试锁定、定时锁定以及解锁后重新锁定。</p>
+</li>
+<li><p><code>lock_guard</code> 则更为简单，一旦构造就会立即锁定互斥锁，并在作用域结束时自动解锁，没有提供延迟锁定或解锁的能力。</p>
+</li>
+<li><p><code>unique_lock</code>有运算符重载和拷贝构造函数,另一个无,所以<code>unique_lock</code> 可以转移所有权，即可以将一个 <code>unique_lock</code> 对象的所有权转移给另一个 <code>unique_lock</code> 对象。<code>lock_guard</code> 不支持所有权转移。</p>
+</li>
+<li><p>类比一下<code>scoped_ptr</code>和<code>unique_ptr</code></p>
+</li>
+</ul>
+<h2 id="15-尽量避免魔鬼数字的出现"><a href="#15-尽量避免魔鬼数字的出现" class="headerlink" title="15.尽量避免魔鬼数字的出现"></a>15.尽量避免魔鬼数字的出现</h2><ul>
+<li>魔鬼数字:在编程中直接出现在代码中的数值，这些数值通常缺乏说明或者文档，使得代码变得难以理解和维护</li>
+</ul>
+<h2 id="16-栈帧"><a href="#16-栈帧" class="headerlink" title="16. 栈帧"></a>16. 栈帧</h2><ul>
+<li>是调用栈（Call Stack）中的一个单元，它包含了一个函数调用的所有信息。每当一个函数被调用时，一个新的栈帧就会被创建并压入调用栈的顶部。当函数执行完毕后，其对应的栈帧会被弹出栈，释放资源。</li>
+<li>包含信息: 返回地址,局部变量,寄存器保存区,栈帧指针(链接栈帧) ….</li>
+</ul>
+<h2 id="17-inline关键字"><a href="#17-inline关键字" class="headerlink" title="17.inline关键字"></a>17.<code>inline</code>关键字</h2><ul>
+<li><p>作用:建议编译器将函数的定义（即函数体）直接插入到每个函数调用的地方，而不是进行常规的函数调用。  </p>
+</li>
+<li><p>好处: </p>
+<blockquote>
+<p><strong>减少函数调用开销</strong>：避免了参数传递、栈帧创建和销毁等开销，因为函数体直接插入到调用点，不需要额外的调用过程。</p>
+<p><strong>提高执行效率</strong>：对于小型函数，这种内联可以提高程序的执行效率，因为减少了函数调用的开销。</p>
+</blockquote>
+</li>
+<li><p>由编译器决定是否内联,也就是说发生在编译阶段</p>
+</li>
+</ul>
+<h2 id="18-函数对象"><a href="#18-函数对象" class="headerlink" title="18.函数对象"></a>18.函数对象</h2><h5 id="19-当你有一个指向成员函数的指针时，这个指针实际上需要两个参数：一个是指向类实例的指针（或引用），另一个是成员函数本身的需要的参数。这是因为成员函数需要在某个对象的上下文中被调用，这个对象提供了成员函数访问其数据成员和调用其方法所需的环境。"><a href="#19-当你有一个指向成员函数的指针时，这个指针实际上需要两个参数：一个是指向类实例的指针（或引用），另一个是成员函数本身的需要的参数。这是因为成员函数需要在某个对象的上下文中被调用，这个对象提供了成员函数访问其数据成员和调用其方法所需的环境。" class="headerlink" title="19. 当你有一个指向成员函数的指针时，这个指针实际上需要两个参数：一个是指向类实例的指针（或引用），另一个是成员函数本身的需要的参数。这是因为成员函数需要在某个对象的上下文中被调用，这个对象提供了成员函数访问其数据成员和调用其方法所需的环境。"></a>19. 当你有一个指向成员函数的指针时，这个指针实际上需要两个参数：一个是指向类实例的指针（或引用），另一个是成员函数本身的需要的参数。这是因为成员函数需要在某个对象的上下文中被调用，这个对象提供了成员函数访问其数据成员和调用其方法所需的环境。</h5><blockquote>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Test</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="function"><span class="type">void</span> <span class="title">hello</span><span class="params">(string str)</span></span>&#123;cout &lt;&lt; str &lt;&lt; endl;&#125;</span><br><span class="line">&#125;;</span><br><span class="line">function&lt;<span class="type">void</span>(Test*, string)&gt; func5 =&amp;Test::hello;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>这里 <code>func5</code> 被定义为一个 <code>std::function</code>，它可以存储任何可以被调用的对象，这个对象接受两个参数：一个 <code>Test*</code> 类型的指针和一个 <code>std::string</code> 类型的参数。<strong>这是因为 <code>Test::hello</code> 是一个成员函数，它需要一个 <code>Test</code> 类的实例来被调用。</strong></li>
+</ul>
+</blockquote>
+<h2 id="20-用户栈-user-stack"><a href="#20-用户栈-user-stack" class="headerlink" title="20. 用户栈 (user stack)"></a>20. 用户栈 (user stack)</h2><ul>
+<li><strong>用户栈</strong>是用户态进程使用的栈，用于存储函数调用的局部变量、返回地址和参数。</li>
+<li>每个用户态进程都有自己独立的用户栈。</li>
+</ul>
+<ul>
+<li>存储函数调用上下文,支持用户态程序正常执行</li>
+<li>如果用户栈溢出,发生 <strong>栈溢出</strong> 错误</li>
+</ul>
+<h2 id="21-内核栈-kernel-stack"><a href="#21-内核栈-kernel-stack" class="headerlink" title="21. 内核栈(kernel stack)"></a>21. 内核栈(kernel stack)</h2><ul>
+<li><p><strong>内核栈</strong>是内核态代码使用的栈，用于处理系统调用、中断和异常。位于内核空间,与用户空间隔离</p>
+</li>
+<li><p>当用户程序发起系统调用（如 <code>read</code>）时，CPU 会切换到内核态，并使用内核栈保存上下文。</p>
+</li>
+<li><p>如果内核栈溢出，会导致 <strong>系统崩溃</strong>（Kernel Panic）。</p>
+</li>
+</ul>
+<h5 id="22-c-20才有语言级别的协程-之前都没有-yield-函数是让当前线程主动让出CPU时间片-供其他线程运行"><a href="#22-c-20才有语言级别的协程-之前都没有-yield-函数是让当前线程主动让出CPU时间片-供其他线程运行" class="headerlink" title="22. c++20才有语言级别的协程 ,之前都没有, yield()函数是让当前线程	主动让出CPU时间片,供其他线程运行"></a>22. c++20才有语言级别的协程 ,之前都没有, yield()函数是让当前线程	主动让出CPU时间片,供其他线程运行</h5><h5 id="23-join-让调用线程阻塞-通常是主线程-等待被调用线程执行-等被调用线程执行完毕后-主线程从join-处恢复执行"><a href="#23-join-让调用线程阻塞-通常是主线程-等待被调用线程执行-等被调用线程执行完毕后-主线程从join-处恢复执行" class="headerlink" title="23. join()让调用线程阻塞(通常是主线程)等待被调用线程执行,等被调用线程执行完毕后,主线程从join()处恢复执行"></a>23. join()让调用线程阻塞(通常是主线程)等待被调用线程执行,等被调用线程执行完毕后,主线程从join()处恢复执行</h5><ul>
+<li><p><strong>调用线程</strong>：当前正在执行的线程。</p>
+</li>
+<li><p><strong>被调用线程</strong>：被调用的函数或任务所在的线程。</p>
+</li>
+<li><p>比如说main()调用t1.join(),t1线程就是被调用线程,main()就是主线程</p>
+</li>
+<li><p>一个线程对象只能被 <code>join()</code> 一次</p>
+</li>
+<li><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">  <span class="function"><span class="type">void</span> <span class="title">join</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (!<span class="built_in">joinable</span>()) &#123;</span><br><span class="line">          _Throw_Cpp_error(_INVALID_ARGUMENT);</span><br><span class="line">      &#125;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">joinable() 是 std::thread 的成员函数，用于判断线程是否可以被 join()</span></span><br><span class="line"><span class="comment">如果线程已经被 join() 过，或者已经被 detach()，则 joinable() 返回 false。</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">      <span class="keyword">if</span> (_Thr._Id == _Thrd_id()) &#123;</span><br><span class="line">          _Throw_Cpp_error(_RESOURCE_DEADLOCK_WOULD_OCCUR);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">/*检测是否会发生死锁。 如果当前线程对象（_Thr）的线程 ID 与调用线程的线程 ID </span></span><br><span class="line"><span class="comment">      相同，说明调用线程试图 join() 自己，这会导致死锁。*/</span></span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (_Thrd_join(_Thr, <span class="literal">nullptr</span>) != _Thrd_result::_Success) &#123;</span><br><span class="line">          _Throw_Cpp_error(_NO_SUCH_PROCESS);</span><br><span class="line">      &#125;<span class="comment">//调用底层操作系统的线程等待函数，等待目标线程结束。</span></span><br><span class="line">     </span><br><span class="line">      _Thr = &#123;&#125;;		<span class="comment">//重置线程对象</span></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>重置线程对象:  管理线程对象的生命周期和状态</p>
+<blockquote>
+<ul>
+<li>防止重复 <code>join()</code></li>
+</ul>
+<ul>
+<li>重置线程对象会释放与线程相关的资源（如线程句柄）。</li>
+<li>重置后的线程对象可以被重新赋值</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="24-extern-关键字"><a href="#24-extern-关键字" class="headerlink" title="24. extern 关键字"></a>24. <code>extern</code> 关键字</h2><ol>
+<li><h3 id="变量的声明和定义"><a href="#变量的声明和定义" class="headerlink" title="变量的声明和定义:"></a>变量的声明和定义:</h3> c++支持分离式编译机制,一个程序可分为若干个文件,每个文件独立编译,那么就需要共享代码,一个文件可能需要另一个文件中定义的变量</li>
+</ol>
+<ul>
+<li><p><strong>声明</strong>:为了支持分离式编译,c++允许声明和定义分离,变量的声明规定了变量的类型和名字,一个文件想用另一个文件定义的名字则必须包含该名字的声明</p>
+</li>
+<li><p><strong>定义</strong>:负责创建实体,申请存储空间</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="type">int</span> i;  <span class="comment">//声明i而非定义</span></span><br><span class="line"><span class="type">int</span> j;         <span class="comment">//声明并定义i</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="type">int</span> v = <span class="number">2</span>;</span><br><span class="line"><span class="type">int</span> v = <span class="number">2</span>;     <span class="comment">//这两个语句效果完全一样，都是v的定义</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="2">
+<li><h3 id="在多个文件中共享const对象"><a href="#在多个文件中共享const对象" class="headerlink" title="在多个文件中共享const对象"></a>在多个文件中共享<code>const</code>对象</h3></li>
+</ol>
+<ul>
+<li><p>一个const对象仅在本文件内有效，如果多个文件中出现了同名的const变量时，其实等同于在不同的文件中分别定义了独立的变量。</p>
+</li>
+<li><p>有些const变量初始值不是一个常量表达式,但要在文件内共享,我们不希望编译器为每个文件生成独立变量,即只在一个文件中定义const，而在其他多个文件中声明并使用它。</p>
+<p>  <strong>方法</strong>是对于const变量不管是声明还是定义都添加extern关键字，这样只需要定义一次就可以</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//file1.cpp定义并初始化和一个常量，该常量能被其他文件访问</span></span><br><span class="line"><span class="keyword">extern</span> <span class="type">const</span> <span class="type">int</span> bufferSize = <span class="built_in">function</span>();</span><br><span class="line"><span class="comment">//file1.h头文件</span></span><br><span class="line"><span class="keyword">extern</span> <span class="type">const</span> <span class="type">int</span> bufferSize; <span class="comment">//与file1.cpp中定义的是同一个</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="3">
+<li><h3 id="模板的控制实例化"><a href="#模板的控制实例化" class="headerlink" title="模板的控制实例化"></a>模板的控制实例化</h3></li>
+</ol>
+<ul>
+<li><p>当两个或者多个独立编译的源文件中使用了相同的模板并且提供了相同的模板参数时，每个文件中都会有该模板的一个实例。</p>
+</li>
+<li><p>在大系统中，在多个文件中实例化相同的模板的额外开销可能非常严重，在C++11新标准中，我们可以通过显式实例化来避免这种开销。一个显式实例化具有如下形式：</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="keyword">template</span> declaration; <span class="comment">//实例化声明</span></span><br><span class="line"><span class="keyword">template</span> declaration;        <span class="comment">//实例化定义</span></span><br></pre></td></tr></table></figure>
+
+<p>  declaration是一个类或函数的声明，其中所有的模板参数都已经被替换成为模板实参。例如：</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="keyword">template</span> <span class="keyword">class</span> <span class="title class_">vec</span>&lt;string&gt;;       <span class="comment">//声明</span></span><br><span class="line"><span class="function"><span class="keyword">template</span> <span class="type">int</span> <span class="title">sum</span><span class="params">(<span class="type">const</span> <span class="type">int</span>, <span class="type">const</span> <span class="type">int</span>)</span></span>;  <span class="comment">//定义</span></span><br></pre></td></tr></table></figure>
+
+<p>  当编译器遇到extern模板声明时，它不会在本文件中生成实例化代码，将一个实例化声明为extern就表示承诺在程序的其他位置有该实例化的一个非extern定义。对于一个给定的实例化版本，可能有多个extern声明，但必须只有一个定义。</p>
+<p>  由于编译器在使用一个模板时自动对其实例化，因此extern声明必须出现在任何使用此实例化版本的代码之前。</p>
+</li>
+</ul>
+<h2 id="25-分离式编译"><a href="#25-分离式编译" class="headerlink" title="25. 分离式编译"></a>25. 分离式编译</h2><h2 id="26-常量表达式-constexpr-和-const"><a href="#26-常量表达式-constexpr-和-const" class="headerlink" title="26. 常量表达式,constexpr  和  const"></a>26. 常量表达式,<code>constexpr</code>  和  <code>const</code></h2><ol>
+<li><h3 id="常量表达式"><a href="#常量表达式" class="headerlink" title="常量表达式"></a>常量表达式</h3></li>
+</ol>
+<ul>
+<li><p>常量表达式: 是指<strong>值不会改变</strong>且<strong>编译期可以得到结果</strong>的表达式。</p>
+</li>
+<li><p>const 对象表明值不会改变，但不一定能够在编译期取得结果；constexpr 对象不仅值不会改变，而且保证能够<strong>在编译期取得结果</strong>(const不一定)。如果一个 const 变量能够在编译期求值，将其改为 constexpr 能够让代码更清晰易读。</p>
+</li>
+<li><p>一个对象（或表达式）是否是常量表达式取决于类型和初始值，如：</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i1 = <span class="number">42</span>;           <span class="comment">// i1 不是常量表达式：初始值 42 是字面值，但 i1 不是 const 类型</span></span><br><span class="line"><span class="type">const</span> <span class="type">int</span> i2 = i1;     <span class="comment">// i2 不是常量表达式：初始值 i1 不是常量表达式</span></span><br><span class="line"><span class="type">const</span> <span class="type">int</span> i3 = <span class="number">42</span>;     <span class="comment">// i3 是常量表达式：用字面值 42 初始化的 const 对象</span></span><br><span class="line"><span class="type">const</span> <span class="type">int</span> i4 = i3 + <span class="number">1</span>; <span class="comment">// i4 是常量表达式：用常量表达式 i3 + 1 初始化的 const 对象</span></span><br><span class="line"><span class="type">const</span> <span class="type">int</span> i5 = <span class="built_in">getValue</span>(); <span class="comment">// 如果 getValue() 是普通函数，则 i5 值要到运行时才能确定，则不是常量表达式</span></span><br><span class="line"></span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="2">
+<li><h3 id="constexpr变量"><a href="#constexpr变量" class="headerlink" title="constexpr变量"></a><code>constexpr</code>变量</h3></li>
+</ol>
+<ul>
+<li><p>上面的例子可以看出，不能直接判断一个 const 对象是否是常量表达式：例如 i4 是否是常量表达式取决于 i3 是否是常量表达式，而 i4 又可能用来初始化其他常量表达式。在复杂的系统中，很难一眼看出某个 const 对象是否是常量表达式。</p>
+</li>
+<li><p>C++11 允许把变量声明为 constexpr 类型，此时编译器会保证 constexpr 变量是常量表达式（<strong>否则编译报错</strong>）。换句话说，只要看到 constexpr 类型的变量，则一定能够在编译期取得结果，可以用在需要常量表达式的场景。</p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i1 = <span class="number">42</span>;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i2 = i1; <span class="comment">// constexpr 变量 &#x27;i2&#x27; 必须由常量表达式初始化。不允许在常量表达式中读取非 const 变量 &#x27;i1&#x27;</span></span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i3 = <span class="number">42</span>; <span class="comment">// i3 是常量表达式</span></span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i4 = i3 + <span class="number">1</span>; <span class="comment">// i4 是常量表达式</span></span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i5 = <span class="built_in">getValue</span>(); <span class="comment">// 只有 getValue() 是 constexpr 函数时才可以，否则编译报错</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="3">
+<li><h3 id="constexpr函数"><a href="#constexpr函数" class="headerlink" title="constexpr函数"></a><code>constexpr</code>函数</h3></li>
+</ol>
+<ul>
+<li><p>constexpr 函数是指能用于常量表达式的函数。</p>
+</li>
+<li><p>constexpr 函数既能用于要求常量表达式&#x2F;编译期常量的语境，<strong>也可以作为普通函数使用</strong>。</p>
+<blockquote>
+<p>注意：<strong>constexpr 函数不一定返回常量表达式！</strong></p>
+</blockquote>
+</li>
+<li><p>只有 constexpr 的所有实参都是常量表达式&#x2F;编译期常量时，constexpr 函数的结果才是常量表达式&#x2F;编译期常量。只要有一个参数在编译期未知，那就和普通函数一样，在运行时计算。</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">sum</span><span class="params">(<span class="type">int</span> a, <span class="type">int</span> b)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> a + b;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i1 = <span class="number">42</span>;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">int</span> i2 = <span class="built_in">sum</span>(i1, <span class="number">52</span>); <span class="comment">// 所有参数都是常量表达式，sum 的结果也是常量表达式，在编译期求值</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">AddThree</span><span class="params">(<span class="type">int</span> i)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">sum</span>(i, <span class="number">3</span>); <span class="comment">// i 不是常量表达式，此时 sum 作为普通函数使用</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="4">
+<li><h3 id="好处"><a href="#好处" class="headerlink" title="好处"></a>好处</h3></li>
+</ol>
+<ul>
+<li>编译器可以保证 constexpr 对象是常量表达式（能够在编译期取得结果），而 const 对象不能保证。如果一个 const 变量能够在编译期求值，将其改为 constexpr 能够让代码更清晰易读</li>
+<li>constexpr 函数可以把运行期计算迁移至编译期，使得程序运行更快（但会增加编译时间）</li>
+</ul>
+<blockquote>
+<p>对于常量表达式（编译期值已知），编译器可以进行更多优化，比如放到只读内存中。但这并不是 constexpr 特有的，有的 const 变量也是常量表达式</p>
+</blockquote>
+<h2 id="27-多线程编程"><a href="#27-多线程编程" class="headerlink" title="27. 多线程编程"></a>27. 多线程编程</h2><ol>
+<li>线程间互斥</li>
+</ol>
+<ul>
+<li><code>mutex</code>  <code>lock_guard</code></li>
+</ul>
+<ol start="2">
+<li>线程间同步通信</li>
+</ol>
+<ul>
+<li><p>条件变量:  <code>condition_variable</code> </p>
+</li>
+<li><p>cv.wait(lock);</p>
+<blockquote>
+<p>当线程调用 <code>cv.wait(lck)</code> 时，它会执行以下操作：</p>
+<ol>
+<li><strong>释放锁 <code>lck</code></strong>：线程会释放它持有的锁 <code>lck</code>，允许其他线程获取锁。</li>
+<li><strong>进入阻塞状态</strong>：线程进入等待状态，挂起执行，直到被 <code>notify_one</code> 或 <code>notify_all</code> 唤醒。</li>
+<li><strong>被唤醒后重新获取锁</strong>：当线程被唤醒时，它会重新尝试获取锁 <code>lck</code>，并在成功获取锁后继续执行。</li>
+</ol>
+<p>在阻塞期间，线程不会主动检查 <code>while</code> 条件（例如 <code>while (!ready)</code>），因为它已经被挂起，无法执行任何代码。</p>
+</blockquote>
+</li>
+<li><p>notify_one&#x2F;notify_all</p>
+<blockquote>
+<p>唤醒其他(一个或所有)正在阻塞队列上的线程,尝试获取锁,<strong>但本身函数调用不会释放锁</strong></p>
+<p>要直到显式（例如，通过 <code>lck.unlock()</code> 或 <code>lck</code> 离开作用域）才会释放锁  比如下面离开go()函数作用域才会释放锁</p>
+</blockquote>
+</li>
+<li><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// condition_variable example</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span>           <span class="comment">// std::cout</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;thread&gt;</span>             <span class="comment">// std::thread</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;mutex&gt;</span>              <span class="comment">// std::mutex, std::unique_lock</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;condition_variable&gt;</span> <span class="comment">// std::condition_variable</span></span></span><br><span class="line"> </span><br><span class="line">std::mutex mtx;</span><br><span class="line">std::condition_variable cv;</span><br><span class="line"><span class="type">bool</span> ready = <span class="literal">false</span>;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">print_id</span><span class="params">(<span class="type">int</span> id)</span> </span>&#123;</span><br><span class="line">	<span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lck</span><span class="params">(mtx)</span></span>;</span><br><span class="line">	<span class="keyword">while</span> (!ready) cv.<span class="built_in">wait</span>(lck);</span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">	std::cout &lt;&lt; <span class="string">&quot;thread &quot;</span> &lt;&lt; id &lt;&lt; <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">go</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lck</span><span class="params">(mtx)</span></span>;</span><br><span class="line">	ready = <span class="literal">true</span>;</span><br><span class="line">	cv.<span class="built_in">notify_all</span>(); <span class="comment">// 这是重点</span></span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	std::thread threads[<span class="number">10</span>];</span><br><span class="line">	<span class="comment">// spawn 10 threads:</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; ++i)</span><br><span class="line">		threads[i] = std::<span class="built_in">thread</span>(print_id, i);</span><br><span class="line"> </span><br><span class="line">	std::cout &lt;&lt; <span class="string">&quot;10 threads ready to race...\n&quot;</span>;</span><br><span class="line">	<span class="built_in">go</span>();                       <span class="comment">// go!</span></span><br><span class="line"> </span><br><span class="line">	<span class="keyword">for</span> (<span class="keyword">auto</span>&amp; th : threads) th.<span class="built_in">join</span>();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>然后 这个代码还是有问题,当我把notify_all改为notify_one时,所有线程还是都执行了打印操作,按理来说只有一个线程被唤醒,其他的仍在阻塞队列上,不能抢锁,在我思考许久跟deepseek讨论了后,我提出了: </p>
+<blockquote>
+<p>我在想有没有可能是线程再进入循环还没调用cv.wait(lck)函数 go()就执行了 这是进行判断,直接跳出循环没有进入阻塞状态,所以全部线程进行了打印</p>
+</blockquote>
+<p>  的猜想,随后我代码上进行了输出调试</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">print_id</span><span class="params">(<span class="type">int</span> id)</span> </span>&#123;</span><br><span class="line">	<span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lck</span><span class="params">(mtx)</span></span>;</span><br><span class="line"></span><br><span class="line">	std::cout &lt;&lt; ready &lt;&lt; std::endl;</span><br><span class="line">	<span class="keyword">while</span> (!ready) </span><br><span class="line">	&#123;</span><br><span class="line">		cv.<span class="built_in">wait</span>(lck);</span><br><span class="line">	&#125;</span><br><span class="line">	std::cout &lt;&lt; ready &lt;&lt; std::endl;</span><br><span class="line">	std::cout &lt;&lt; <span class="string">&quot;thread &quot;</span> &lt;&lt; id &lt;&lt; <span class="string">&quot; is running\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//std::cout &lt;&lt; &quot;thread &quot; &lt;&lt; id &lt;&lt; &#x27;\n&#x27;;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>  我在循环前就打印了ready的值,不出我所料,打印结果如下</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">10 threads ready to race...</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 3 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 0 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 1 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 2 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 4 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 5 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 6 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 7 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 8 is running</span><br><span class="line">1</span><br><span class="line">1</span><br><span class="line">thread 9 is running</span><br></pre></td></tr></table></figure>
+
+<p>  这说明我的猜想正确,<strong>在进入 <code>while (!ready)</code> 循环之前，<code>ready</code> 就已经被设置为 <code>true</code></strong>，因此所有线程都跳过了 <code>cv.wait(lck)</code>，直接执行了打印操作。</p>
+</li>
+<li><p>最终代码</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// condition_variable example</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span>           <span class="comment">// std::cout</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;thread&gt;</span>             <span class="comment">// std::thread</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;mutex&gt;</span>              <span class="comment">// std::mutex, std::unique_lock</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;condition_variable&gt;</span> <span class="comment">// std::condition_variable</span></span></span><br><span class="line"></span><br><span class="line">std::mutex mtx;</span><br><span class="line">std::condition_variable cv;</span><br><span class="line"><span class="type">bool</span> ready = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">print_id</span><span class="params">(<span class="type">int</span> id)</span> </span>&#123;</span><br><span class="line">	<span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lck</span><span class="params">(mtx)</span></span>;</span><br><span class="line">	std::cout &lt;&lt; ready;</span><br><span class="line">    <span class="keyword">while</span> (!ready) </span><br><span class="line">	&#123;</span><br><span class="line">		cv.<span class="built_in">wait</span>(lck);</span><br><span class="line">	&#125;</span><br><span class="line">	std::cout &lt;&lt; ready &lt;&lt; std::endl;</span><br><span class="line">	std::cout &lt;&lt; <span class="string">&quot;thread &quot;</span> &lt;&lt; id &lt;&lt; <span class="string">&quot; is running\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//std::cout &lt;&lt; &quot;thread &quot; &lt;&lt; id &lt;&lt; &#x27;\n&#x27;;</span></span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">go</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">lck</span><span class="params">(mtx)</span></span>;</span><br><span class="line">	ready = <span class="literal">true</span>;</span><br><span class="line">	<span class="comment">//cv.notify_all(); // 这是重点</span></span><br><span class="line">	cv.<span class="built_in">notify_one</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	std::thread threads[<span class="number">10</span>];</span><br><span class="line">	<span class="comment">// spawn 10 threads:</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; ++i)</span><br><span class="line">		threads[i] = std::<span class="built_in">thread</span>(print_id, i);</span><br><span class="line"></span><br><span class="line">	std::this_thread::<span class="built_in">sleep_for</span>(std::chrono::<span class="built_in">seconds</span>(<span class="number">1</span>));  <span class="comment">//等待所有线程进入循环 然后被阻塞</span></span><br><span class="line">	std::cout &lt;&lt; <span class="string">&quot;10 threads ready to race...\n&quot;</span>;</span><br><span class="line">	<span class="built_in">go</span>();                       <span class="comment">// go!</span></span><br><span class="line">	<span class="keyword">for</span> (<span class="keyword">auto</span>&amp; th : threads) th.<span class="built_in">join</span>();</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>  我在主线程等待1s,于是结果如下</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">000000000010 threads ready to race...</span><br><span class="line">1</span><br><span class="line">thread 0 is running</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>于是问题被解决了 爽!!!  </p>
+<blockquote>
+<p>后面发现论坛里所有人都在说代码给的有问题</p>
+<p>CSDN真是司马</p>
+</blockquote>
+</li>
+</ul>
+<ol start="3">
+<li>信号量semaphore</li>
+</ol>
+<ul>
+<li><p>语言级别的信号量 到c++20才实现 ,或者是调用linux的信号量   c++11 想实现 要用互斥锁和条件变量</p>
+<p>​</p>
+</li>
+</ul>
+<h5 id="28-函数的封装和绑定"><a href="#28-函数的封装和绑定" class="headerlink" title="28.函数的封装和绑定"></a>28.函数的封装和绑定</h5><h2 id="29-指针的初始化"><a href="#29-指针的初始化" class="headerlink" title="29.指针的初始化"></a>29.指针的初始化</h2><h3 id="指针的声明"><a href="#指针的声明" class="headerlink" title="指针的声明"></a><strong>指针的声明</strong></h3><ul>
+<li>在C++中，声明一个指针变量（如<code>ListNode* cur;</code>）时，如果没有显式地初始化它，那么它的值是<strong>未定义的</strong>。这意味着<code>cur</code>可能指向一个随机的内存地址。</li>
+<li>当你尝试访问<code>cur-&gt;next</code>时，实际上是在访问一个随机地址的<code>next</code>成员，这会导致<strong>未定义行为（Undefined Behavior, UB）</strong>，可能会导致程序崩溃、错误的结果，甚至看似正常运行但隐藏着潜在问题。</li>
+</ul>
+<h3 id="访问随机地址"><a href="#访问随机地址" class="headerlink" title="访问随机地址"></a><strong>访问随机地址</strong></h3><p>当你尝试访问<code>cur-&gt;next</code>时，实际上是在尝试解引用<code>cur</code>，即访问<code>cur</code>所指向的内存地址中的内容。然而，由于<code>cur</code>未初始化，它的值是随机的，你无法预测它指向哪里。这可能导致以下几种情况：</p>
+<ul>
+<li><strong>访问合法内存</strong>：如果<code>cur</code>恰好指向一个合法的内存区域，程序可能看起来正常运行，但这只是巧合。</li>
+<li><strong>访问非法内存</strong>：如果<code>cur</code>指向一个非法的内存区域（如已释放的内存或未分配的内存），程序可能会崩溃（如段错误，Segmentation Fault）。</li>
+<li><strong>访问受保护的内存</strong>：如果<code>cur</code>指向一个受保护的内存区域（如操作系统内核空间），程序可能会被操作系统终止。</li>
+</ul>
+<h2 id="30-stack和queue的底层实现"><a href="#30-stack和queue的底层实现" class="headerlink" title="30.stack和queue的底层实现"></a>30.stack和queue的底层实现</h2><p>STL中 这两个都不是容器,而是<strong>容器适配器(container adapter)</strong></p>
+<p><strong>栈是以底层容器完成其所有的工作，对外提供统一的接口，底层容器是可插拔的（也就是说我们可以控制使用哪种容器来实现栈的功能）。</strong></p>
+<p><strong>栈</strong>的底层实现可以是list,vector,deque,栈提供push 和 pop 等等接口，所有元素必须符合先进后出规则，所以栈不提供走访功能，也不提供迭代器(iterator)。 不像是set 或者map 提供迭代器iterator来遍历所有元素</p>
+<p><strong>队列</strong>中先进先出的数据结构，同样不允许有遍历行为，不提供迭代器, <strong>SGI STL中队列一样是以deque为缺省情况下的底部结构</strong></p>
+<h2 id="31-容器适配器-Container-Adapters"><a href="#31-容器适配器-Container-Adapters" class="headerlink" title="31. 容器适配器(Container Adapters)"></a>31. 容器适配器(Container Adapters)</h2><p>在C++标准库中确实是由<strong>底层容器实现</strong>的。容器适配器是一种特殊的容器，它们基于现有的容器类型（如 <code>std::vector</code>、<code>std::deque</code>,<code>std::list</code>,），并通过限制或扩展这些容器的功能来提供特定的接口和行为。</p>
+<p>容器适配器不支持直接迭代（即不能使用基于范围的 <code>for</code> 循环或普通迭代器）</p>
+<p>C++标准库中常见的容器适配器包括：</p>
+<ol>
+<li><strong><code>std::stack</code></strong>(栈)：默认使用 <code>std::deque</code> 作为底层容器。</li>
+<li><strong><code>std::queue</code></strong>(队列)：默认使用 <code>std::deque</code> 作为底层容器。</li>
+<li><strong><code>std::priority_queue</code></strong>(优先级队列)：默认使用 <code>std::vector</code> 作为底层容器。</li>
+</ol>
+<h3 id="自定义底层容器"><a href="#自定义底层容器" class="headerlink" title="自定义底层容器"></a><strong>自定义底层容器</strong></h3><p>你可以通过模板参数指定容器适配器的底层容器。例如：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">std::stack&lt;<span class="type">int</span>, std::vector&lt;<span class="type">int</span>&gt;&gt; my_stack;  <span class="comment">// 使用 std::vector 作为底层容器的栈</span></span><br><span class="line">std::queue&lt;<span class="type">int</span>, std::list&lt;<span class="type">int</span>&gt;&gt; my_queue;    <span class="comment">// 使用 std::list 作为底层容器的队列</span></span><br><span class="line">std::priority_queue&lt;<span class="type">int</span>, std::deque&lt;<span class="type">int</span>&gt;, std::greater&lt;<span class="type">int</span>&gt;&gt; my_priority_queue;  <span class="comment">// 使用 std::deque 作为底层容器的优先队列</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="容器适配器的特点"><a href="#容器适配器的特点" class="headerlink" title="容器适配器的特点"></a><strong>容器适配器的特点</strong></h3><ol>
+<li><strong>隐藏底层容器的细节</strong>：容器适配器只暴露了与特定功能相关的接口，隐藏了底层容器的直接操作。</li>
+<li><strong>提供特定的接口</strong>：例如，<code>std::stack</code> 只提供 <code>push()</code>、<code>pop()</code>、<code>top()</code> 等栈操作接口；<code>std::queue</code> 提供 <code>push()</code>、<code>pop()</code>、<code>front()</code>、<code>back()</code> 等队列操作接口。</li>
+<li><strong>依赖底层容器的实现</strong>：容器适配器的行为和性能特性依赖于底层容器的选择。</li>
+</ol>
+<h2 id=""><a href="#" class="headerlink" title=""></a></h2><h2 id="31-随机访问迭代器"><a href="#31-随机访问迭代器" class="headerlink" title="31.随机访问迭代器"></a>31.随机访问迭代器</h2><p><strong>迭代器可以与数字进行加减操作</strong>，前提是该迭代器类型支持随机访问（即属于<strong>随机访问迭代器</strong>，如<code>vector</code>、<code>array</code>、<code>deque</code>等的迭代器）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">vector&lt;<span class="type">int</span>&gt; <span class="title">leftInorder</span><span class="params">(inorder.begin(),inorder.begin()+index)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>此处index为数字,与<code>inorder</code>的迭代器相加, 此行代码作用是创建一个新的<code>vector</code>数组,从<code>inorder</code>开头开始到<code>index</code>前一位结束(<code>end()</code>迭代器指向数组最后一位的下一位).</p>
+<p>与此同时,迭代器之间也可以进行加减操作</p>
+<blockquote>
+<p>只有来自同一个容器的迭代器才能相互操作</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span> maxNum=<span class="built_in">max_element</span>(nums.<span class="built_in">begin</span>(),nums.<span class="built_in">end</span>());</span><br><span class="line"><span class="type">int</span> max_it =maxNum-nums.<span class="built_in">begin</span>();</span><br></pre></td></tr></table></figure>
+
+<p>这样可以通过减法得到最大值的下标</p>
+<ol>
+<li><p><strong>迭代器  <code>op</code>  数字  (向前&#x2F;向后移动)</strong></p>
+ <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span> new_it = old_it - <span class="number">3</span>; <span class="comment">// 返回一个向前移动 3 位的迭代器</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>迭代器 <code>op</code> 迭代器  (计算距离)</strong></p>
+ <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span> dist = it2 - it1; <span class="comment">// 返回两个迭代器之间的距离（类型为 ptrdiff_t）</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<p><code>list</code>、<code>forward_list</code>、<code>map</code>、<code>set</code>等的迭代器不支持随机访问，不能直接与数字相加。</p>
+<h2 id="32-随机访问"><a href="#32-随机访问" class="headerlink" title="32.随机访问"></a>32.随机访问</h2><p><strong>随机访问</strong> 指的是能够直接访问数据结构中的任意元素，而无需按顺序遍历前面的元素。支持随机访问的容器（如数组、<code>std::vector</code>、<code>std::deque</code>,<code>std::string</code>）允许通过**索引（下标）*<em>或*<em>迭代器算术运算</em></em>（如 <code>+</code>、<code>-</code>）快速访问任意位置的元素。</p>
+<ul>
+<li><strong>时间复杂度 O(1)</strong>：可以直接通过索引或迭代器计算跳转到目标位置，无需逐个遍历。</li>
+<li><strong>支持迭代器算术运算</strong>：如 <code>iter + n</code>、<code>iter - n</code>、<code>iter += offset</code> 等。</li>
+<li><strong>支持下标运算符 <code>[]</code></strong>：如 <code>arr[3]</code> 或 <code>vec[5]</code>。</li>
+</ul>
+<h2 id="33-ptrdiff-t"><a href="#33-ptrdiff-t" class="headerlink" title="33.ptrdiff_t"></a>33.ptrdiff_t</h2><p><code>ptrdiff_t</code>类型变量通常用来保存两个指针减法操作的结果</p>
+<p>定义在 <em>stddef.h</em>（或 <em>cstddef</em>）头文件中，通常被定义为 <code>long int</code>或<code>long long int</code> 类型</p>
+<p><code>difference_type</code>是<code>signed</code>类型,表示迭代器差距，vector<int>:: difference_type &#x3D; iter1-iter2.</p>
+<p><strong><code>ptrdiff_t</code>与<code>difference_type</code>区别，前面的是c++定义的标准，后面则是STL定义的</strong>。</p>
+<p>刚刚看了眼stl库,后者在stl里用的是<code>ptrdiff_t</code>实现的 意思差不多就行了</p>
+<h2 id="34-main函数的返回值应该定义为int类型"><a href="#34-main函数的返回值应该定义为int类型" class="headerlink" title="34.main函数的返回值应该定义为int类型"></a>34.main函数的返回值应该定义为int类型</h2><p>C++标准中规定的：main函数的返回值应该定义为int类型</p>
+<h2 id="35-优先级队列priority-queue"><a href="#35-优先级队列priority-queue" class="headerlink" title="35.优先级队列priority_queue"></a>35.优先级队列<code>priority_queue</code></h2><p>默认最大堆 <code>less  </code> 不提供迭代器，也不支持随机访问。</p>
+<p>创建自定义类型的最小堆</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">compare</span> &#123;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">operator</span><span class="params">()</span><span class="params">(<span class="type">int</span> a, <span class="type">int</span> b)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> a &gt; b; <span class="comment">// 定义最小堆  新加入的元素a 如果比b大 那么b下沉,最后 留下的都是最小的元素</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">priority_queue&lt;<span class="type">int</span>, std::vector&lt;<span class="type">int</span>&gt;, compare&gt; pq_min;</span><br></pre></td></tr></table></figure>
+
+<p>如果是c++基本数据类型,那么可以直接使用自带的<code>greater</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//不写后面两个参数默认为vector，less</span></span><br><span class="line">priority_queue&lt;<span class="type">int</span>&gt; pq1;</span><br><span class="line"><span class="comment">//建立一个优先级队列(大堆)，数据类型是int，利用vector容器实现，less（降序）实现</span></span><br><span class="line">priority_queue&lt;<span class="type">int</span>, vector&lt;<span class="type">int</span>&gt;, less&lt;<span class="type">int</span>&gt;&gt; pq2;</span><br><span class="line"><span class="comment">//建立一个优先级队列(小堆)，数据类型是int，利用vector容器实现，greater（降序）实现</span></span><br><span class="line">priority_queue&lt;<span class="type">int</span>, vector&lt;<span class="type">int</span>&gt;, greater&lt;<span class="type">int</span>&gt;&gt; pq3;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong><code>return a &lt; b</code> 是大顶堆</strong>：因为 <code>priority_queue</code> 默认将”优先级高”的元素放在队首，而 <code>less&lt;T&gt;</code> 会让更大的元素优先级更高。</li>
+<li><strong><code>return a &gt; b</code> 是小顶堆</strong>：反向定义优先级，使更小的元素排在前面。</li>
+<li><strong>核心规则</strong>：比较函数返回 <code>true</code> 表示第一个参数的优先级 <strong>低于</strong> 第二个参数。</li>
+</ul>
+<h2 id="36-memset"><a href="#36-memset" class="headerlink" title="36.memset"></a>36.<code>memset</code></h2><p><code>memset</code>是按字节操作的低级函数，而<code>vector</code>内部使用动态分配的内存，其内存布局对用户是透明的。直接对<code>vector</code>使用<code>memset</code>会破坏其内部结构（如size和capacity信息）。</p>
+<h2 id="37-成员访问运算符"><a href="#37-成员访问运算符" class="headerlink" title="37. 成员访问运算符"></a>37. 成员访问运算符</h2><table>
+<thead>
+<tr>
+<th align="left"><strong>运算符</strong></th>
+<th align="left"><strong>名称</strong></th>
+<th align="left"><strong>适用场景</strong></th>
+<th align="left"><strong>等价形式</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>.</code></td>
+<td align="left">成员访问运算符</td>
+<td align="left">对象实体（如 <code>obj.member</code>）</td>
+<td align="left">—</td>
+</tr>
+<tr>
+<td align="left"><code>-&gt;</code></td>
+<td align="left">指针成员访问运算符</td>
+<td align="left">对象指针（如 <code>ptr-&gt;member</code>）</td>
+<td align="left"><code>(*ptr).member</code></td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>明确语义</strong>：区分对象和指针的操作，避免歧义。<ul>
+<li>例如，<code>ptr-&gt;next</code> 清晰表明 <code>ptr</code> 是指针，而 <code>obj.next</code> 表明 <code>obj</code> 是对象。</li>
+</ul>
+</li>
+<li><strong>安全性</strong>：防止误用指针或对象（编译器会检查类型）。</li>
+</ul>
+<h3 id="38-括号的使用"><a href="#38-括号的使用" class="headerlink" title="38. 括号的使用"></a>38. 括号的使用</h3><ul>
+<li><p><strong><code>{}</code></strong> 用于初始化数据结构，符合列表初始化语法。</p>
+</li>
+<li><p><strong><code>[]</code></strong> 用于数组下标访问或 lambda 表达式，不应用于数据初始化。</p>
+</li>
+</ul>
+<p>所以 返回一个数组 或者添加一个数组 应该这么写</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">result.<span class="built_in">push_back</span>(&#123;x, nums[j], nums[k]&#125;);</span><br><span class="line"><span class="keyword">return</span> &#123;x,y,z&#125;;    <span class="comment">//不能用中括号</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="重载-overload-与重写-override"><a href="#重载-overload-与重写-override" class="headerlink" title="重载(overload)与重写(override)"></a>重载(overload)与重写(override)</h3><p><strong>一、重载（overload）</strong><br>指函数名相同，但是它的参数表列个数或顺序，类型不同。但是不能靠返回类型来判断。<br>（1）相同的范围（在同一个作用域中） ；<br>（2）函数名字相同；<br>（3）参数不同；<br>（4）virtual 关键字可有可无。<br>（5）返回值可以不同；</p>
+<p><strong>二、重写（也称为覆盖 override）</strong><br>是指派生类重新定义基类的虚函数，特征是：<br>（1）不在同一个作用域（分别位于派生类与基类） ；<br>（2）函数名字相同；<br>（3）参数相同；<br>（4）基类函数必须有 virtual 关键字，不能有 static 。<br>（5）返回值相同（或是协变），否则报错；<br>  (6）重写函数的访问修饰符可以不同。尽管 virtual 是 private 的，派生类中重写改写为 public,protected 也是可以的</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -1502,7 +2379,7 @@
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
+    <a class="extend prev" rel="prev" href="/blog/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/blog/">1</a><span class="page-number current">2</span>
   </nav>
 
 
@@ -1544,21 +2421,7 @@
   <aside class="sidebar">
     <div class="sidebar-inner">
 
-      <ul class="sidebar-nav motion-element">
-        <li class="sidebar-nav-toc">
-          文章目录
-        </li>
-        <li class="sidebar-nav-overview">
-          站点概览
-        </li>
-      </ul>
-
-      <!--noindex-->
-      <div class="post-toc-wrap sidebar-panel">
-      </div>
-      <!--/noindex-->
-
-      <div class="site-overview-wrap sidebar-panel">
+      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <img class="site-author-image" itemprop="image" alt="Glcyx"
       src="/images/avatar.png">
@@ -1570,7 +2433,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">14</span>
+          <span class="site-state-item-count">17</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1588,14 +2451,6 @@
       </div>
   </nav>
 </div>
-  <div class="links-of-author motion-element">
-      <span class="links-of-author-item">
-        <a href="https://github.com/Glcyx" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;Glcyx" rel="noopener" target="_blank">GitHub</a>
-      </span>
-      <span class="links-of-author-item">
-        <a href="/884478769@qq.com" title="E-Mail → 884478769@qq.com">E-Mail</a>
-      </span>
-  </div>
 
 
 

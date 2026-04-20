@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"glcyx.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","width":250,"display":"post","padding":13,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":"default"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Canonicalizer.cpp 这个pass其实很常用了,平时跑mlir-opt -canonicalize基本就在用它,所以还是值得单独看一下 整体结构目的:这个pass本质上不是自己写很多特殊优化逻辑,而是统一收集各个Dialect和Op上声明好的canonicalization patterns 然后用贪心重写框架去反复应用 也就是说  具体怎么折叠 哪些op可以简化 哪些组合可以合并">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CanonicalizerPass.cpp阅读">
+<meta property="og:url" content="https://glcyx.github.io/2026/03/08/CanonicalizerPass-cpp%E9%98%85%E8%AF%BB/index.html">
+<meta property="og:site_name" content="Glcyx的博客">
+<meta property="og:description" content="Canonicalizer.cpp 这个pass其实很常用了,平时跑mlir-opt -canonicalize基本就在用它,所以还是值得单独看一下 整体结构目的:这个pass本质上不是自己写很多特殊优化逻辑,而是统一收集各个Dialect和Op上声明好的canonicalization patterns 然后用贪心重写框架去反复应用 也就是说  具体怎么折叠 哪些op可以简化 哪些组合可以合并">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-08T13:12:14.000Z">
+<meta property="article:modified_time" content="2026-04-20T07:28:02.642Z">
+<meta property="article:author" content="Glcyx">
+<meta property="article:tag" content="MLIR">
+<meta property="article:tag" content="Pass">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://glcyx.github.io/2026/03/08/CanonicalizerPass-cpp%E9%98%85%E8%AF%BB/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>CanonicalizerPass.cpp阅读 | Glcyx的博客</title>
+  
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?0df27ec3441ae8df38c4aca0b3fb2949";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Glcyx的博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录与思考</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-blog">
+
+    <a href="/blog/" rel="section"><i class="fa fa-book-open fa-fw"></i>blog</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/03/08/CanonicalizerPass-cpp%E9%98%85%E8%AF%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CanonicalizerPass.cpp阅读
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-03-08 21:12:14" itemprop="dateCreated datePublished" datetime="2026-03-08T21:12:14+08:00">2026-03-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-20 15:28:02" itemprop="dateModified" datetime="2026-04-20T15:28:02+08:00">2026-04-20</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p><a target="_blank" rel="noopener" href="https://github.com/llvm/llvm-project/blob/main/mlir/lib/Transforms/Canonicalizer.cpp">Canonicalizer.cpp</a></p>
+<p>这个<code>pass</code>其实很常用了,平时跑<code>mlir-opt -canonicalize</code>基本就在用它,所以还是值得单独看一下</p>
+<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><h3 id="目的"><a href="#目的" class="headerlink" title="目的:"></a>目的:</h3><p>这个<code>pass</code>本质上不是自己写很多特殊优化逻辑,而是统一收集各个Dialect和Op上声明好的<code>canonicalization patterns</code> 然后用贪心重写框架去反复应用</p>
+<p>也就是说</p>
+<ul>
+<li>具体怎么折叠</li>
+<li>哪些op可以简化</li>
+<li>哪些组合可以合并</li>
+</ul>
+<p>这些规则大部分不是写在<code>CanonicalizerPass</code>里,而是分散在各个<code>op</code>定义和对应实现里</p>
+<p>而这个<code>pass</code>做的事情更像是一个统一调度器</p>
+<h3 id="Pass定义"><a href="#Pass定义" class="headerlink" title="Pass定义"></a>Pass定义</h3><p><code>Canonicalizer</code>继承自<code>PassWrapper&lt;Canonicalizer, OperationPass&lt;func::FuncOp&gt;&gt;</code>这种印象其实不对</p>
+<p>它这里是更泛化的写法,可以对任意隔离的操作运行,本质上还是一个<code>OperationPass</code></p>
+<p>核心点是: <code>canonicalize</code>不是只服务某一个Dialect,而是一个全局通用整理流程</p>
+<h3 id="命令行参数"><a href="#命令行参数" class="headerlink" title="命令行参数"></a>命令行参数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">StringRef <span class="title">getArgument</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123; <span class="keyword">return</span> <span class="string">&quot;canonicalize&quot;</span>; &#125;</span><br><span class="line"><span class="function">StringRef <span class="title">getDescription</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="string">&quot;Canonicalize operations&quot;</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以执行的时候就是</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mlir-opt xxx.mlir -canonicalize</span><br></pre></td></tr></table></figure>
+
+<h2 id="核心逻辑"><a href="#核心逻辑" class="headerlink" title="核心逻辑"></a>核心逻辑</h2><h3 id="runOnOperation"><a href="#runOnOperation" class="headerlink" title="runOnOperation()"></a><code>runOnOperation()</code></h3><p>这个函数里面核心流程其实比较清楚</p>
+<ol>
+<li>取当前操作 <code>getOperation()</code></li>
+<li>创建<code>RewritePatternSet</code></li>
+<li>从当前操作以及嵌套操作相关的Dialect &#x2F; Op里收集canonicalization pattern</li>
+<li>调用<code>applyPatternsGreedily()</code>反复应用</li>
+</ol>
+<p>所以这个<code>pass</code>核心并不在于自己怎么改IR,而在于把大家已经定义好的规则组织起来</p>
+<h3 id="Pattern的收集"><a href="#Pattern的收集" class="headerlink" title="Pattern的收集"></a>Pattern的收集</h3><p>这里值得注意的是 它不是手写一个个<code>patterns.add&lt;...&gt;()</code></p>
+<p>而是通过MLIR里已经提供好的接口去收集</p>
+<p>也就是如果某个Op实现了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">getCanonicalizationPatterns</span><span class="params">(RewritePatternSet &amp;results,</span></span></span><br><span class="line"><span class="params"><span class="function">                                 MLIRContext *context)</span></span></span><br></pre></td></tr></table></figure>
+
+<p>那么<code>canonicalizer pass</code>在跑的时候就能把它拿到</p>
+<p>这也是为什么平时在自己写Dialect或者写Op的时候,经常会看到:</p>
+<ul>
+<li><code>hasCanonicalizer</code></li>
+<li><code>hasCanonicalizeMethod</code></li>
+<li><code>fold()</code></li>
+</ul>
+<p>这些东西最后都能和<code>canonicalize</code>这条链路接起来</p>
+<h3 id="为什么常配合fold"><a href="#为什么常配合fold" class="headerlink" title="为什么常配合fold"></a>为什么常配合<code>fold</code></h3><p><code>canonicalize</code>和<code>fold</code>经常一起提</p>
+<p>因为很多最简单的简化:</p>
+<ul>
+<li>常量折叠</li>
+<li>冗余维度消除</li>
+<li>无意义转换删除</li>
+</ul>
+<p>这些是可以直接在<code>fold()</code>里做掉的</p>
+<p>而更复杂一点,需要匹配多条op组合关系的,就更适合放进<code>canonicalization pattern</code></p>
+<p>所以可以理解成:</p>
+<ul>
+<li><code>fold()</code> 更像局部立即折叠</li>
+<li><code>canonicalization pattern</code> 更像重写规则</li>
+</ul>
+<p>两者最后都服务于把IR整理得更干净</p>
+<h2 id="为什么要用贪心重写"><a href="#为什么要用贪心重写" class="headerlink" title="为什么要用贪心重写"></a>为什么要用贪心重写</h2><p>这里底层调用的是<code>applyPatternsGreedily()</code></p>
+<p>原因也比较自然,因为一个pattern生效后,往往会创造出新的可优化机会</p>
+<p>例如:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">opA -&gt; opB -&gt; opC</span><br></pre></td></tr></table></figure>
+
+<p>先把<code>opB</code>折掉以后,可能<code>opA</code>和<code>opC</code>之间又出现新的匹配机会</p>
+<p>所以这里不是跑一遍就结束,而是不断迭代直到收敛</p>
+<h2 id="这个Pass本身值得学什么"><a href="#这个Pass本身值得学什么" class="headerlink" title="这个Pass本身值得学什么"></a>这个Pass本身值得学什么</h2><p>我觉得看这个文件主要是学三件事</p>
+<h3 id="第一-canonicalize到底是什么"><a href="#第一-canonicalize到底是什么" class="headerlink" title="第一: canonicalize到底是什么"></a>第一: canonicalize到底是什么</h3><p>它不是某个单独优化技巧,而是一套统一整理IR的入口</p>
+<h3 id="第二-pattern和pass的关系"><a href="#第二-pattern和pass的关系" class="headerlink" title="第二: pattern和pass的关系"></a>第二: pattern和pass的关系</h3><p>以前会容易觉得“我写了pattern就是写了pass”</p>
+<p>其实不是</p>
+<ul>
+<li><code>pattern</code>定义怎么改</li>
+<li><code>pass</code>决定什么时候改,在哪个范围改,用什么策略改</li>
+</ul>
+<p><code>canonicalizer</code>就是一个很标准的“pattern驱动型pass”</p>
+<h3 id="第三-为什么自己写pass时经常先接canonicalize"><a href="#第三-为什么自己写pass时经常先接canonicalize" class="headerlink" title="第三: 为什么自己写pass时经常先接canonicalize"></a>第三: 为什么自己写pass时经常先接<code>canonicalize</code></h3><p>因为很多自己新建出来的op,或者替换后的中间结果,不一定是最简形式</p>
+<p>这时候跑一次<code>canonicalize</code></p>
+<ul>
+<li>可以清理中间垃圾</li>
+<li>可以触发已有pattern</li>
+<li>让IR更稳定</li>
+</ul>
+<p>这也是为什么很多pipeline里都喜欢看到</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">canonicalize -&gt; cse -&gt; canonicalize</span><br></pre></td></tr></table></figure>
+
+<h2 id="和自己写Pass的关系"><a href="#和自己写Pass的关系" class="headerlink" title="和自己写Pass的关系"></a>和自己写Pass的关系</h2><p>如果后面自己写Buddy或者MLIR的小优化,其实有两个方向</p>
+<h3 id="直接自己在pass里改"><a href="#直接自己在pass里改" class="headerlink" title="直接自己在pass里改"></a>直接自己在pass里改</h3><p>比如手动遍历op,手动replace,手动erase</p>
+<p>这种写法适合很直接的逻辑</p>
+<h3 id="把规则写成pattern-再交给贪心驱动"><a href="#把规则写成pattern-再交给贪心驱动" class="headerlink" title="把规则写成pattern,再交给贪心驱动"></a>把规则写成pattern,再交给贪心驱动</h3><p>这种方式更自然,也更贴合MLIR整体风格</p>
+<p>而<code>CanonicalizerPass.cpp</code>就是这种思想的典型入口</p>
+<p>所以这个文件虽然本身不长,但是位置很关键</p>
+<p>它把“各个地方零散定义的canonicalization规则”真正串起来了</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/MLIR/" rel="tag"># MLIR</a>
+              <a href="/tags/Pass/" rel="tag"># Pass</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/" rel="prev" title="CSE.cpp阅读">
+      <i class="fa fa-chevron-left"></i> CSE.cpp阅读
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/03/31/MLIR%20TestPrintDefUse-cpp%E9%98%85%E8%AF%BB/" rel="next" title="TestPrintDefUse.cpp阅读">
+      TestPrintDefUse.cpp阅读 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview">
+            站点概览
+          </li>
+        </ul>
+
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">整体结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%AE%E7%9A%84"><span class="nav-number">1.1.</span> <span class="nav-text">目的:</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Pass%E5%AE%9A%E4%B9%89"><span class="nav-number">1.2.</span> <span class="nav-text">Pass定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%8F%82%E6%95%B0"><span class="nav-number">1.3.</span> <span class="nav-text">命令行参数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">核心逻辑</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#runOnOperation"><span class="nav-number">2.1.</span> <span class="nav-text">runOnOperation()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Pattern%E7%9A%84%E6%94%B6%E9%9B%86"><span class="nav-number">2.2.</span> <span class="nav-text">Pattern的收集</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%B8%B8%E9%85%8D%E5%90%88fold"><span class="nav-number">2.3.</span> <span class="nav-text">为什么常配合fold</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E7%94%A8%E8%B4%AA%E5%BF%83%E9%87%8D%E5%86%99"><span class="nav-number">3.</span> <span class="nav-text">为什么要用贪心重写</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%99%E4%B8%AAPass%E6%9C%AC%E8%BA%AB%E5%80%BC%E5%BE%97%E5%AD%A6%E4%BB%80%E4%B9%88"><span class="nav-number">4.</span> <span class="nav-text">这个Pass本身值得学什么</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80-canonicalize%E5%88%B0%E5%BA%95%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">4.1.</span> <span class="nav-text">第一: canonicalize到底是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C-pattern%E5%92%8Cpass%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-number">4.2.</span> <span class="nav-text">第二: pattern和pass的关系</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%87%AA%E5%B7%B1%E5%86%99pass%E6%97%B6%E7%BB%8F%E5%B8%B8%E5%85%88%E6%8E%A5canonicalize"><span class="nav-number">4.3.</span> <span class="nav-text">第三: 为什么自己写pass时经常先接canonicalize</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%92%8C%E8%87%AA%E5%B7%B1%E5%86%99Pass%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-number">5.</span> <span class="nav-text">和自己写Pass的关系</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B4%E6%8E%A5%E8%87%AA%E5%B7%B1%E5%9C%A8pass%E9%87%8C%E6%94%B9"><span class="nav-number">5.1.</span> <span class="nav-text">直接自己在pass里改</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8A%8A%E8%A7%84%E5%88%99%E5%86%99%E6%88%90pattern-%E5%86%8D%E4%BA%A4%E7%BB%99%E8%B4%AA%E5%BF%83%E9%A9%B1%E5%8A%A8"><span class="nav-number">5.2.</span> <span class="nav-text">把规则写成pattern,再交给贪心驱动</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Glcyx"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">Glcyx</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">17</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Glcyx</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+      
+
+<script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      loader: {
+          load: ['[tex]/mhchem'],
+        source: {
+          '[tex]/amsCd': '[tex]/amscd',
+          '[tex]/AMScd': '[tex]/amscd'
+        }
+      },
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+          packages: {'[+]': ['mhchem']},
+        tags: 'ams'
+      },
+      options: {
+        renderActions: {
+          findScript: [10, doc => {
+            document.querySelectorAll('script[type^="math/tex"]').forEach(node => {
+              const display = !!node.type.match(/; *mode=display/);
+              const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+              const text = document.createTextNode('');
+              node.parentNode.replaceChild(text, node);
+              math.start = {node: text, delim: '', n: 0};
+              math.end = {node: text, delim: '', n: 0};
+              doc.math.push(math);
+            });
+          }, '', false],
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              let target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    (function () {
+      var script = document.createElement('script');
+      script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    })();
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+    
+
+  
+
+</body>
+</html>
