@@ -170,175 +170,6 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.png">
-      <meta itemprop="name" content="Glcyx">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Glcyx的博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/" class="post-title-link" itemprop="url">CSE.cpp阅读</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2026-02-27 20:08:41" itemprop="dateCreated datePublished" datetime="2026-02-27T20:08:41+08:00">2026-02-27</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2026-04-20 15:28:02" itemprop="dateModified" datetime="2026-04-20T15:28:02+08:00">2026-04-20</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p><a target="_blank" rel="noopener" href="https://github.com/llvm/llvm-project/blob/main/mlir/lib/Transforms/CSE.cpp">CSE.cpp</a></p>
-<p>这个<code>pass</code>也非常常见,平时经常就是<code>canonicalize</code>后面跟一个<code>cse</code></p>
-<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><h3 id="目的"><a href="#目的" class="headerlink" title="目的:"></a>目的:</h3><p><code>CSE</code>也就是<code>Common Subexpression Elimination</code></p>
-<p>核心目标就是消除重复计算</p>
-<p>如果两个<code>op</code></p>
-<ul>
-<li>操作类型相同</li>
-<li>操作数相同</li>
-<li>属性相同</li>
-<li>没有会影响结果的副作用</li>
-</ul>
-<p>那么后一个<code>op</code>就没必要再算一次,直接复用前一个结果就行</p>
-<h3 id="命令行参数"><a href="#命令行参数" class="headerlink" title="命令行参数"></a>命令行参数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">StringRef <span class="title">getArgument</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123; <span class="keyword">return</span> <span class="string">&quot;cse&quot;</span>; &#125;</span><br></pre></td></tr></table></figure>
-
-<p>执行命令就是</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mlir-opt xxx.mlir -cse</span><br></pre></td></tr></table></figure>
-
-<h2 id="一个最简单的理解"><a href="#一个最简单的理解" class="headerlink" title="一个最简单的理解"></a>一个最简单的理解</h2><p>例如</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%0 = arith.addi %a, %b : i32</span><br><span class="line">%1 = arith.addi %a, %b : i32</span><br></pre></td></tr></table></figure>
-
-<p>如果这两个<code>op</code>都没有副作用,那么第二个就可以删掉,把<code>%1</code>的使用点都替换成<code>%0</code></p>
-<p>这个思想本身不复杂,但真正做的时候要考虑:</p>
-<ul>
-<li>支配关系</li>
-<li>region &#x2F; block 层级</li>
-<li>带副作用的op不能乱合并</li>
-</ul>
-<h2 id="核心逻辑"><a href="#核心逻辑" class="headerlink" title="核心逻辑"></a>核心逻辑</h2><h3 id="不是简单全局哈希一下就结束"><a href="#不是简单全局哈希一下就结束" class="headerlink" title="不是简单全局哈希一下就结束"></a>不是简单全局哈希一下就结束</h3><p>第一眼可能会觉得</p>
-<blockquote>
-<p>那不就是给op做个hash,一样的就替换</p>
-</blockquote>
-<p>但实际上不行</p>
-<p>因为前面的op必须能支配后面的op</p>
-<p>也就是说 你要替换一个结果,前提是原来那个结果在控制流上对当前点可见</p>
-<p>所以这个<code>pass</code>要结合遍历顺序和作用域结构来做</p>
-<h3 id="遍历方式"><a href="#遍历方式" class="headerlink" title="遍历方式"></a>遍历方式</h3><p>这个文件里会递归处理 operation &#x2F; region &#x2F; block</p>
-<p>因为MLIR IR本身就是嵌套结构,不是简单一层线性指令</p>
-<p>所以<code>CSE</code>不能只看一个block里的相邻语句,而是要在合法支配范围内维护“当前已经见过且可复用的表达式”</p>
-<h3 id="hasNoSideEffect-这种判断非常关键"><a href="#hasNoSideEffect-这种判断非常关键" class="headerlink" title="hasNoSideEffect 这种判断非常关键"></a><code>hasNoSideEffect</code> 这种判断非常关键</h3><p>重复表达式消除有个前提</p>
-<blockquote>
-<p>这个op要足够“纯”</p>
-</blockquote>
-<p>比如:</p>
-<ul>
-<li>常量</li>
-<li>加法</li>
-<li>一些纯计算</li>
-</ul>
-<p>这些是可以合并的</p>
-<p>但如果一个op会:</p>
-<ul>
-<li>写内存</li>
-<li>读取某些会变化的状态</li>
-<li>产生外部可观察副作用</li>
-</ul>
-<p>那就不能简单认为“长得一样所以结果一样”</p>
-<p>这也是<code>CSE</code>和普通文本去重完全不是一回事的原因</p>
-<h2 id="值得注意的地方"><a href="#值得注意的地方" class="headerlink" title="值得注意的地方"></a>值得注意的地方</h2><h3 id="block-argument-不能乱动"><a href="#block-argument-不能乱动" class="headerlink" title="block argument 不能乱动"></a>block argument 不能乱动</h3><p><code>CSE</code>主要处理的是重复<code>op</code></p>
-<p>而不是把所有值都拿来乱合并</p>
-<p>像<code>BlockArgument</code>这种值来源就不是某个具体<code>op</code>,所以处理逻辑本来就不同</p>
-<h3 id="region嵌套时作用域会变化"><a href="#region嵌套时作用域会变化" class="headerlink" title="region嵌套时作用域会变化"></a>region嵌套时作用域会变化</h3><p>MLIR里一个operation内部还能套region</p>
-<p>所以进入一个新的region时,你要考虑:</p>
-<ul>
-<li>外层有哪些值是可见的</li>
-<li>当前层新增了哪些可候选的表达式</li>
-<li>离开作用域后哪些东西不能继续拿来复用</li>
-</ul>
-<p>这个文件一个比较重要的点就是把这种嵌套结构里的可用表达式管理起来</p>
-<h3 id="死代码删除会顺手发生"><a href="#死代码删除会顺手发生" class="headerlink" title="死代码删除会顺手发生"></a>死代码删除会顺手发生</h3><p>当后一个重复op被替换掉以后,它自己就没用了</p>
-<p>这时候就可以被删掉</p>
-<p>所以<code>CSE</code>看起来只是“合并重复表达式”,实际上最后效果经常会让IR明显短一截</p>
-<h2 id="为什么经常接在canonicalize后面"><a href="#为什么经常接在canonicalize后面" class="headerlink" title="为什么经常接在canonicalize后面"></a>为什么经常接在<code>canonicalize</code>后面</h2><p>因为<code>canonicalize</code>经常会把IR整理成更规范的形式</p>
-<p>比如原本写法不同但语义等价的东西,先被整理成统一样子</p>
-<p>这时候再跑<code>CSE</code>,就更容易识别出“你们两个其实一样”</p>
-<p>所以顺序上:</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">canonicalize -&gt; cse</span><br></pre></td></tr></table></figure>
-
-<p>很常见</p>
-<p>如果中间又生成了新的可简化形式,后面甚至再补一个<code>canonicalize</code></p>
-<h2 id="对自己写优化有什么帮助"><a href="#对自己写优化有什么帮助" class="headerlink" title="对自己写优化有什么帮助"></a>对自己写优化有什么帮助</h2><p>我觉得看这个文件主要是提醒自己:</p>
-<h3 id="第一-不是所有重复长相的op都能合并"><a href="#第一-不是所有重复长相的op都能合并" class="headerlink" title="第一,不是所有重复长相的op都能合并"></a>第一,不是所有重复长相的op都能合并</h3><p>要先看支配关系和副作用</p>
-<h3 id="第二-优化pass之间是会互相喂机会的"><a href="#第二-优化pass之间是会互相喂机会的" class="headerlink" title="第二,优化pass之间是会互相喂机会的"></a>第二,优化pass之间是会互相喂机会的</h3><p>一个pass并不需要把所有事情做完</p>
-<p>它只要把IR往更规范、更简洁的方向推一步,后面的pass就可能继续接力</p>
-<h3 id="第三-MLIR里很多“常规优化”其实已经有现成pass"><a href="#第三-MLIR里很多“常规优化”其实已经有现成pass" class="headerlink" title="第三,MLIR里很多“常规优化”其实已经有现成pass"></a>第三,MLIR里很多“常规优化”其实已经有现成pass</h3><p>所以自己写pipeline的时候,不用每次都从零开始造轮子</p>
-<p>像</p>
-<ul>
-<li><code>canonicalize</code></li>
-<li><code>cse</code></li>
-</ul>
-<p>这种基础pass先接上,很多中间垃圾会自己少很多</p>
-<h2 id="一个整体印象"><a href="#一个整体印象" class="headerlink" title="一个整体印象"></a>一个整体印象</h2><p><code>CSE.cpp</code>读下来没有那种特别花的技巧,但很典型</p>
-<p>它体现的是编译器里一个很基础但是很重要的思路:</p>
-<blockquote>
-<p>在保证语义不变的前提下,不要重复做同样的计算</p>
-</blockquote>
-<p>而MLIR把这件事放在嵌套IR结构里来做,所以比单block文本理解要更有意思一点</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/18/GreedyPatternRewriteDriver-cpp%E9%98%85%E8%AF%BB/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -2261,7 +2092,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2026-04-20 21:22:58" itemprop="dateModified" datetime="2026-04-20T21:22:58+08:00">2026-04-20</time>
+                <time title="修改时间：2026-04-20 21:24:39" itemprop="dateModified" datetime="2026-04-20T21:24:39+08:00">2026-04-20</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -3265,7 +3096,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-count">17</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -3278,7 +3109,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-count">13</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

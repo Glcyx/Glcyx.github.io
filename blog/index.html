@@ -300,406 +300,6 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/04/08/Buddy-mlir%E4%BC%98%E5%8C%96%E9%A1%B9%E7%9B%AE/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.png">
-      <meta itemprop="name" content="Glcyx">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Glcyx的博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2026/04/08/Buddy-mlir%E4%BC%98%E5%8C%96%E9%A1%B9%E7%9B%AE/" class="post-title-link" itemprop="url">Buddy_mlir优化项目</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2026-04-08 15:31:09" itemprop="dateCreated datePublished" datetime="2026-04-08T15:31:09+08:00">2026-04-08</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2026-04-13 21:28:35" itemprop="dateModified" datetime="2026-04-13T21:28:35+08:00">2026-04-13</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Buddy-Compiler/" itemprop="url" rel="index"><span itemprop="name">Buddy Compiler</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="搭建框架"><a href="#搭建框架" class="headerlink" title="搭建框架"></a>搭建框架</h1><ol>
-<li>新建目录</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">midend/lib/Conversion/PermutationFolding/</span><br></pre></td></tr></table></figure>
-<ol start="2">
-<li>新建 CMake</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">midend/lib/Conversion/PermutationFolding/CMakeLists.txt</span><br></pre></td></tr></table></figure>
-<ol start="3">
-<li>新建 pass 源文件</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">midend/lib/Conversion/PermutationFolding/PermutationFolding.cpp</span><br></pre></td></tr></table></figure>
-<ol start="4">
-<li>把子目录接到总 CMake</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> midend/lib/Conversion/CMakeLists.txt</span><br></pre></td></tr></table></figure>
-<p>加入<code>add_subdirectory(PermutationFolding)</code></p>
-<ol start="5">
-<li>注册pass到buddy-opt</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">midend/lib/InitAll.cpp</span><br><span class="line">tools/buddy-opt/buddy-opt.cpp</span><br><span class="line">tools/buddy-opt/CMakeLists.txt</span><br><span class="line">midend/lib/CMakeLists.txt</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="第一个Pass编写"><a href="#第一个Pass编写" class="headerlink" title="第一个Pass编写"></a>第一个Pass编写</h2><h3 id="Pass框架"><a href="#Pass框架" class="headerlink" title="Pass框架"></a>Pass框架</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Dialect/Func/IR/FuncOps.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Pass/Pass.h&quot;</span> </span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> mlir;</span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> &#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">PermutationFoldingPass</span> </span><br><span class="line">    : <span class="keyword">public</span> PassWrapper&lt;PermutationFoldingPass, OperationPass&lt;func::FuncOp&gt;&gt; &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID</span>(PermutationFoldingPass)</span><br><span class="line"></span><br><span class="line">    <span class="function">StringRef <span class="title">getArgument</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123; <span class="keyword">return</span> <span class="string">&quot;permutation-folding&quot;</span>; &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function">StringRef <span class="title">getDescription</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;Fold redundant permutation chains.&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">runOnOperation</span><span class="params">()</span> <span class="keyword">override</span> </span>&#123;    </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line">&#125; <span class="comment">// namespace  </span></span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> mlir &#123;</span><br><span class="line"><span class="keyword">namespace</span> buddy &#123;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">registerPermutationFoldingPass</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">PassRegistration</span>&lt;PermutationFoldingPass&gt;();</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="添加头文件"><a href="#添加头文件" class="headerlink" title="添加头文件:"></a>添加头文件:</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Dialect/MemRef/IR/MemRef.h&quot;</span> <span class="comment">//我们要用到memref::TransposeOp</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/IR/PatternMatch.h&quot;</span> <span class="comment">//要用OpRewritePattern</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Transforms/GreedyPatternRewriteDriver.h&quot;</span> <span class="comment">//applyPatternGreedily</span></span></span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="先写一个最小pattern"><a href="#先写一个最小pattern" class="headerlink" title="先写一个最小pattern"></a>先写一个最小pattern</h4><p>在<code>Pass</code>前面 编写<code>Pattern</code></p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">FoldDoubleTransposePattern</span></span><br><span class="line">    : <span class="keyword">public</span> OpRewritePattern&lt;memref::TransposeOp&gt; &#123; <span class="comment">//表示这个pattern只匹配memref.Transpose</span></span><br><span class="line">  <span class="keyword">using</span> OpRewritePattern&lt;memref::TransposeOp&gt;::OpRewriterPattern;</span><br><span class="line"></span><br><span class="line">  <span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(memref::TransposeOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                                PatternRewrite &amp;rewrite)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> parentTranspose = op.<span class="built_in">getIn</span>().<span class="built_in">getDefiningOp</span>&lt;memref::TransposeOp&gt;(); </span><br><span class="line">      <span class="comment">//如果父操作不是memref::Transpose,直接返回 不归这个pattern管 </span></span><br><span class="line">    <span class="keyword">if</span> (!parentTranspose)</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line">	<span class="comment">//检查最开始的输入与当前op的输出结果是不是相同的 因为我们要折叠这两次op操作,所以结果类型一定要对的上</span></span><br><span class="line">    <span class="keyword">if</span> (parentTranspose.<span class="built_in">getIn</span>().<span class="built_in">getType</span>() != op.<span class="built_in">getType</span>())</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line">    rewriter.<span class="built_in">replaceOp</span>(op, parentTranspose.<span class="built_in">getIn</span>());</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="auto-parentTranspose-op-getIn-getDefiningOp"><a href="#auto-parentTranspose-op-getIn-getDefiningOp" class="headerlink" title=" auto parentTranspose = op.getIn().getDefiningOp&lt;memref::TransposeOp&gt;();"></a><code> auto parentTranspose = op.getIn().getDefiningOp&lt;memref::TransposeOp&gt;();</code></h4><p>这里<code>op</code>就是当前<code>memref::Transpose</code>这个操作</p>
-<p><code>op.getIn()</code> 取当前<code>op</code>的输入 </p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%<span class="number">1</span> = memref.transpose %<span class="number">0</span> ...</span><br><span class="line">%<span class="number">2</span> = memref.transpose %<span class="number">1</span> ...</span><br></pre></td></tr></table></figure>
-
-<p>如果此时<code>op</code>是第二个操作,那么 <code>op.getIn()</code>返回<code>%1</code></p>
-<p><code>getDefiningOp&lt;memref::TransposeOp&gt;()</code></p>
-<p>我们把生成这个<code>getIn()</code>结果的<code>value</code>值的操作当成<code>memref::Transpose</code>来看,如果是把这个<code>op</code>取出来</p>
-<p>如果不是 返回空<code>nullptr</code>, 下面判断后就要返回<code>failure()</code></p>
-<h4 id="if-parentTranspose-getIn-getType-op-getType"><a href="#if-parentTranspose-getIn-getType-op-getType" class="headerlink" title="    if (parentTranspose.getIn().getType() != op.getType())"></a><code>    if (parentTranspose.getIn().getType() != op.getType())</code></h4><p>要加上这个判断,因为有可能在两次<code>tanspose</code>后,类型不同 比如三维数据,这里不展开</p>
-<h4 id="rewriter-replaceOp-op-parentTranspose-getIn"><a href="#rewriter-replaceOp-op-parentTranspose-getIn" class="headerlink" title="rewriter.replaceOp(op, parentTranspose.getIn());"></a><code>rewriter.replaceOp(op, parentTranspose.getIn());</code></h4><p>把 <code>op</code> 产生的结果的所有使用点，全部改成使用 <code>parentTranspose</code> 的输入值；然后删除 <code>op</code> 本身。</p>
-<blockquote>
-<p>因为MLIR是SSA结构,所以<code>rewriter</code>直接利用 IR 里现成的 <strong>use-def 链</strong>,把能替换的都替换了</p>
-</blockquote>
-<h4 id="将pattern接入pass"><a href="#将pattern接入pass" class="headerlink" title="将pattern接入pass"></a>将pattern接入pass</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">runOnOperation</span><span class="params">()</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    <span class="function">RewritePatternSet <span class="title">patterns</span><span class="params">(&amp;getContext())</span></span>; <span class="comment">//创建pattern容器</span></span><br><span class="line">    patterns.<span class="built_in">add</span>&lt;FoldDoubleTransposePattern&gt;(&amp;<span class="built_in">getContext</span>()); <span class="comment">//将我们的pattern加入</span></span><br><span class="line"></span><br><span class="line">    GreedyRewriteConfig config; </span><br><span class="line">    config.<span class="built_in">setStrictness</span>(GreedyRewriteStrictness::AnyOp);</span><br><span class="line">	</span><br><span class="line">    <span class="comment">//贪心应用该pattern</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">failed</span>(<span class="built_in">applyPatternsGreedily</span>(<span class="built_in">getOperation</span>(), std::<span class="built_in">move</span>(patterns), config)))</span><br><span class="line">      <span class="built_in">signalPassFailure</span>();  <span class="comment">//如果出错标记失败</span></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="声明依赖Dialect"><a href="#声明依赖Dialect" class="headerlink" title="声明依赖Dialect"></a>声明依赖Dialect</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">getDependentDialects</span><span class="params">(DialectRegistry &amp;registry)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">  registry.<span class="built_in">insert</span>&lt;memref::MemRefDialect&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>让 MLIR 运行时加载 memref 方言（能正常运行 pass）</p>
-<p>现在先测试</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">func.func @test(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">  %0 = memref.transpose %arg0 (d0, d1) -&gt; (d1, d0)</span><br><span class="line">    : memref&lt;2x3xf32&gt; to memref&lt;3x2xf32, strided&lt;[1, 3]&gt;&gt;</span><br><span class="line">  %1 = memref.transpose %0 (d0, d1) -&gt; (d1, d0)</span><br><span class="line">    : memref&lt;3x2xf32, strided&lt;[1, 3]&gt;&gt; to memref&lt;2x3xf32&gt;</span><br><span class="line">  return %1 : memref&lt;2x3xf32&gt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p><code>build/bin/buddy-opt test.mlir -permutation-folding</code></p>
-<p>优化结果</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">module &#123;</span><br><span class="line">  func.func @test(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">    return %arg0 : memref&lt;2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>我们可以看到初始输入<code>%arg0</code>替代了<code>%1</code>,同时删除了两条<code>op</code></p>
-<h3 id="写测试文件"><a href="#写测试文件" class="headerlink" title="写测试文件"></a>写测试文件</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">//RUN: buddy-opt %s -permutation-folding | FileCheck %s</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @test(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">    %0 = memref.transpose %arg0 (d0, d1) -&gt; (d1, d0)</span><br><span class="line">      : memref&lt;2x3xf32&gt; to memref&lt;3x2xf32, strided&lt;[1, 3]&gt;&gt;</span><br><span class="line">    %1 = memref.transpose %0 (d0, d1) -&gt; (d1, d0)</span><br><span class="line">      : memref&lt;3x2xf32, strided&lt;[1, 3]&gt;&gt; to memref&lt;2x3xf32&gt;</span><br><span class="line">    return %1 : memref&lt;2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//CHECK-LABEL: func.func @test</span><br><span class="line">//CHECK-NOT: memref.transpose</span><br><span class="line">//CHECK: return %arg0 : memref&lt;2x3xf32&gt;</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><code>// RUN</code><ul>
-<li>表示这份测试怎么跑</li>
-</ul>
-</li>
-<li><code>%s</code><ul>
-<li>表示当前测试文件自身</li>
-</ul>
-</li>
-<li><code>FileCheck %s</code><ul>
-<li>用当前文件里的 CHECK 注释来校验输出</li>
-</ul>
-</li>
-<li><code>CHECK-NOT</code><ul>
-<li>表示输出里不应该再出现 memref.transpose</li>
-</ul>
-</li>
-</ul>
-<h4 id="将AffineMap转为vector"><a href="#将AffineMap转为vector" class="headerlink" title="将AffineMap转为vector"></a>将AffineMap转为vector</h4><p>添加头文件</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Dialect/Utils/IndexingUtils.h&quot;</span></span></span><br></pre></td></tr></table></figure>
-
-<p>在匿名空间内添加函数</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> SmallVector&lt;<span class="type">int64_t</span>&gt; <span class="title function_">getPermutationVector</span><span class="params">(AffineMap permutation)</span> &#123;</span><br><span class="line">  SmallVector&lt;<span class="type">int64_t</span>&gt; values;</span><br><span class="line">  values.reserve(permutation.getNumResults());</span><br><span class="line">  <span class="keyword">for</span> (AffineExpr expr : permutation.getResults())</span><br><span class="line">    values.push_back(cast&lt;AffineDimExpr&gt;(expr).getPositon());</span><br><span class="line">  <span class="keyword">return</span> values;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-
-<p><code>AffineMap permutation</code>:  <code>memref::transpose</code>的permutation本质上是<code>affine map</code> 一个线性的关系</p>
-<p><code> values.reserve(permutation.getNumResults());</code>: 获取<code>affine map</code>大小 提前为<code>values</code>扩容</p>
-<p>e.g:<code>(d0, d1, d2) -&gt; (d2, d0, d1)</code> 那么就是 <code>reserve(3)</code></p>
-<p><code>  for (AffineExpr expr : permutation.getResults())</code>: 遍历<code>affine map</code>的每一个结果表达式</p>
-<p>例如:<code>(d0, d1, d2) -&gt; (d2, d0, d1)</code> 取出来就是<code>d2</code>,<code>d0</code>,<code>d1</code></p>
-<p> <code>values.push_back(cast&lt;AffineDimExpr&gt;(expr).getPositon());</code>:  将维度强行转换为数字</p>
-<p>整个函数效果就是:<code>(d0, d1, d2) -&gt; (d2, d0, d1)</code> 转为<code>[2,0,1]</code></p>
-<h4 id="compose函数"><a href="#compose函数" class="headerlink" title="compose函数"></a>compose函数</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> SamllVector&lt;<span class="type">int64_t</span>&gt; <span class="title">composepermutation</span><span class="params">(ArrayRef&lt;<span class="type">int64_t</span>&gt; first,</span></span></span><br><span class="line"><span class="params"><span class="function">                                               ArrayRef&lt;<span class="type">int64_t</span>&gt; second)</span> </span>&#123;</span><br><span class="line">  SamllVector&lt;<span class="type">int64_t</span>&gt; composed;</span><br><span class="line">  composed.<span class="built_in">reserve</span>(second.<span class="built_in">size</span>());</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int64_t</span> index : second)</span><br><span class="line">    composed.<span class="built_in">push_back</span>(first[index]);</span><br><span class="line">  <span class="keyword">return</span> composed;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>函数实现的就是公式:<code>compose(perm1,perm2) = perm1[perm2[i]]</code></p>
-<p>也就是perm1经过perm2的转换后得到的</p>
-<p>e.g: </p>
-<p>perm1 &#x3D; [1, 0, 2]<br>perm2 &#x3D; [2, 0, 1]</p>
-<p><code>compose(perm1, perm2) = [2, 1, 0]</code></p>
-<h4 id="修改pattern判断逻辑"><a href="#修改pattern判断逻辑" class="headerlink" title="修改pattern判断逻辑"></a>修改pattern判断逻辑</h4><p>添加</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">SmallVector&lt;<span class="type">int64_t</span>&gt; parentPerm =</span><br><span class="line">    <span class="built_in">getPermutationVector</span>(parentTranspose.<span class="built_in">getPermutation</span>());</span><br><span class="line">SmallVector&lt;<span class="type">int64_t</span>&gt; currentPerm =</span><br><span class="line">    <span class="built_in">getPermutationVector</span>(op.<span class="built_in">getPermutation</span>());</span><br><span class="line">SmallVector&lt;<span class="type">int64_t</span>&gt; composed =</span><br><span class="line">    <span class="built_in">composePermutations</span>(parentPerm, currentPerm);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (!<span class="built_in">isIdentityPermutation</span>(composed))</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br></pre></td></tr></table></figure>
-
-<p>取出两个连续 transpose 的维度重排规则，合成后检查是否为恒等排列；如果不是，就说明它们不能互相抵消，匹配失败。</p>
-<p>增加判定的严谨性,靠<code>permutation</code>语义进行判断 使得维度没有发生变化</p>
-<p>e.g:</p>
-<p>有<code>memref&lt;2x2xf32&gt;</code>为</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[ [<span class="number">1</span>, <span class="number">2</span>],</span><br><span class="line">  [<span class="number">3</span>, <span class="number">4</span>] ]</span><br></pre></td></tr></table></figure>
-
-<p>对<code>memref&lt;2x2xf32&gt;</code>进行一次<code>transpose</code> 数据结构还是<code>memref&lt;2x2xf32&gt;</code></p>
-<p>而数据变成</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[ [<span class="number">1</span>, <span class="number">3</span>],</span><br><span class="line">  [<span class="number">2</span>, <span class="number">4</span>] ]</span><br></pre></td></tr></table></figure>
-
-<p>类型不变 但是数据发生了更改,如果不判断<code>identity</code>,不判断维度是否回到原来位置就要出错</p>
-<h4 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/permutation-folding.mlir --permutation-folding</span><br><span class="line">module &#123;</span><br><span class="line">  func.func @<span class="built_in">test</span>(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">    <span class="built_in">return</span> %arg0 : memref&lt;2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<p>现在 我们要进行进一步优化,当<code>compose</code>不是<code>identity</code>的时候,我们要新建一个<code>memref::transpose</code>, 输入是原始输入,<code>permutation</code>是<code>compose</code>这个</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">transpose</span>(<span class="built_in">transpose</span>(x, perm1), perm2)</span><br><span class="line">-&gt; <span class="built_in">transpose</span>(x, <span class="built_in">compose</span>(perm1, perm2))</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="修改判断逻辑-分层优化策略"><a href="#修改判断逻辑-分层优化策略" class="headerlink" title="修改判断逻辑 分层优化策略"></a>修改判断逻辑 分层优化策略</h4><p>将</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!<span class="built_in">isIdentityPermutation</span>(composed))</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (parentTranspose.<span class="built_in">getIn</span>().<span class="built_in">getType</span>() != op.<span class="built_in">getType</span>())</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line">rewriter.<span class="built_in">replaceOp</span>(op, parentTranspose.<span class="built_in">getIn</span>());</span><br><span class="line"><span class="keyword">return</span> <span class="built_in">success</span>();</span><br></pre></td></tr></table></figure>
-
-<p>修改为</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//compose符合identity 同时类型也相同 直接替换</span></span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">isIdentityPermutation</span>(composed) &amp;&amp;</span><br><span class="line">    parentTranspose.<span class="built_in">getIn</span>().<span class="built_in">getType</span>() == op.<span class="built_in">getType</span>()) &#123;</span><br><span class="line">  rewriter.<span class="built_in">replaceOp</span>(op, parentTranspose.<span class="built_in">getIn</span>());</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">auto</span> permutationAttr = AffineMapAttr::<span class="built_in">get</span>(</span><br><span class="line">    AffineMap::<span class="built_in">getPermutationMap</span>(composed, op.<span class="built_in">getContext</span>()));</span><br><span class="line"></span><br><span class="line">rewriter.<span class="built_in">replaceOpWithNewOp</span>&lt;memref::TransposeOp&gt;(</span><br><span class="line">    op, parentTranspose.<span class="built_in">getIn</span>(), permutationAttr);</span><br><span class="line"><span class="keyword">return</span> <span class="built_in">success</span>();</span><br></pre></td></tr></table></figure>
-
-<p>当我们新建一个<code>memref::transpose</code>时,传入的是<code>AffineMapAttr</code>类型 不是<code>SmallVector&lt;int_64&gt; composed</code></p>
-<p>所以<code>AffineMap::getPermutationMap(composed, op.getContext());</code>将<code>[1,0,2]</code>这种数组转变为<code>permutation map</code>  , <code>AffineMapAttr::get(...)</code>再把它包成 op 属性能接受的形式</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">rewriter.<span class="built_in">replaceOpWithNewOp</span>&lt;memref::TransposeOp&gt;(</span><br><span class="line">    op, parentTranspose.<span class="built_in">getIn</span>(), permutationAttr);</span><br></pre></td></tr></table></figure>
-
-<p>删除当前<code>op</code>,用新的输入<code>memref.transpose</code>替换,新的输入是<code>parentTranspose.getIn()</code>,而新的<code>permutation</code>是<code>permutationAttr</code></p>
-<p>结果类型由<code>memref::TransposeOp</code>的<code>bulider</code>自行推导</p>
-<h4 id="修改测试内容"><a href="#修改测试内容" class="headerlink" title="修改测试内容"></a>修改测试内容</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//新增func</span><br><span class="line">func.func @fold_to_single(%arg0: memref&lt;2x3x4xf32&gt;)</span><br><span class="line">  -&gt; memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt; &#123;</span><br><span class="line">%0 = memref.transpose %arg0 (d0, d1, d2) -&gt; (d1, d2, d0)</span><br><span class="line">  : memref&lt;2x3x4xf32&gt; to memref&lt;3x4x2xf32, strided&lt;[4, 1, 12]&gt;&gt;</span><br><span class="line">%1 = memref.transpose %0 (d0, d1, d2) -&gt; (d1, d2, d0)</span><br><span class="line">  : memref&lt;3x4x2xf32, strided&lt;[4, 1, 12]&gt;&gt; to memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">return %1 : memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @fold_to_single</span><br><span class="line">// CHECK: %[[T:.*]] = memref.transpose %arg0 (d0, d1, d2) -&gt; (d2, d0, d1)</span><br><span class="line">// CHECK-NOT: memref.transpose %[[T]]</span><br><span class="line">// CHECK: return %[[T]]</span><br></pre></td></tr></table></figure>
-
-<p><code>%[[T:.*]]</code>: FileCheck 的<strong>变量捕获语法</strong>。 匹配该位置的SSA 值名,记下来命名为T,后面可以再次引用该值</p>
-<p><code>// CHECK-NOT: memref.transpose %[[T]]</code> : 不应再出现以<code>%[[T]]</code>为输入的<code>memref::transpose</code></p>
-<p><code>strided&lt;[...]&gt;</code> 表示 <strong>每个维度在内存中移动一步要跨多少元素（步长）</strong></p>
-<p>e.g:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%0 = memref.transpose %arg0 (d0, d1, d2) -&gt; (d1, d2, d0)</span><br><span class="line">  : memref&lt;2x3x4xf32&gt; to memref&lt;3x4x2xf32, strided&lt;[4, 1, 12]&gt;&gt;</span><br></pre></td></tr></table></figure>
-
-<p>首先<code>%arg0 (d0, d1, d2)</code>的类型是<code>memref&lt;2x3x4xf32&gt;</code> 那么<code>strided</code>就应该是<code>[12,4,1]</code></p>
-<p><code>d0</code>要到该维度的下一个应该要跨越<code>3x4</code>个元素 ,<code>d1</code>要跨越<code>4</code>个,最后一维肯定是<code>1</code></p>
-<p>所以 我们转换后</p>
-<p><code>%0</code>类型是<code>memref&lt;3x4x2xf32&gt;</code>,维度是<code>[d1,d2,d0]</code>,那么<code>3,4,2</code>分别对应<code>d1,d2,d0</code>,所以<code>strided</code>就应该是<code>[4,1,3x4]</code> </p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ cmake --build build --target buddy-opt</span><br><span class="line">[3/3] Linking CXX executable bin/buddy-opt</span><br><span class="line"></span><br><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/permutation-folding.mlir -permutation-folding</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @<span class="built_in">test</span>(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">    <span class="built_in">return</span> %arg0 : memref&lt;2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">  func.func @fold_to_single(%arg0: memref&lt;2x3x4xf32&gt;) -&gt; memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt; &#123;</span><br><span class="line">    %transpose = memref.transpose %arg0 (d0, d1, d2) -&gt; (d2, d0, d1) : memref&lt;2x3x4xf32&gt; to memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">    <span class="built_in">return</span> %transpose : memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>编译通过,测试用例没有问题</p>
-<h3 id="拓展优化支持-vector-transpose"><a href="#拓展优化支持-vector-transpose" class="headerlink" title="拓展优化支持 vector.transpose"></a>拓展优化支持<code> vector.transpose</code></h3><p>添加头文件</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Dialect/Vector/IR/VectorOps.h&quot;</span></span></span><br></pre></td></tr></table></figure>
-
-<p>后面要用到<code>vector</code></p>
-<h4 id="添加新pattern"><a href="#添加新pattern" class="headerlink" title="添加新pattern"></a>添加新pattern</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">FoldVectorTransposePattern</span></span><br><span class="line">    : : <span class="keyword">public</span> OpRewritePattern&lt;vector::TransposeOp&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> OpRewritePattern&lt;vector::TransposeOp&gt;::OpRewritePattern;</span><br><span class="line"></span><br><span class="line">  <span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(vactor::TransposeOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                                PatternRewriter &amp;rewriter)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    <span class="keyword">auto</span> parentTranspose = op.<span class="built_in">getVector</span>().<span class="built_in">getDefiningOp</span>&lt;vector::TransposeOp&gt;();</span><br><span class="line">    <span class="keyword">if</span> (!parentTranspose)</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line">	<span class="comment">//获取composed 不需要进行AffineMap到vector&lt;int64_t&gt;的转换</span></span><br><span class="line">    SmallVecror&lt;<span class="type">int64_t</span>&gt; composed = <span class="built_in">composePermutations</span>(</span><br><span class="line">        parentTranspose.<span class="built_in">getPermutation</span>(), op.<span class="built_in">getPermutation</span>());</span><br><span class="line">      </span><br><span class="line">	<span class="comment">//判断composed是否identity,以及上一个op的输入是否与当前op输出类型匹配</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">isIdentityPermutation</span>(composed) &amp;&amp;</span><br><span class="line">        parentTranspose.<span class="built_in">getVector</span>().<span class="built_in">getType</span>() == op.<span class="built_in">getResult</span>().<span class="built_in">getType</span>()) &#123;</span><br><span class="line">      rewriter.<span class="built_in">replaceOp</span>(op, parentTranspose.<span class="built_in">getVctor</span>());</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    rewriter.<span class="built_in">replaceOpWithNewOp</span>&lt;vector::TransposeOp&gt;(</span><br><span class="line">        op, op.<span class="built_in">getResult</span>().<span class="built_in">getType</span>(), parentTranspose.<span class="built_in">getVector</span>(), composed);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>与前一个pattern写法大同小异</p>
-<p>因为<code>vector.transpose</code>输入是<code>vector</code> permutation本身就是整数数组 不需要实现<code>AffineMap-&gt;vector&lt;int64_t&gt;</code>的转换</p>
-<h4 id="接入Pass"><a href="#接入Pass" class="headerlink" title="接入Pass"></a>接入Pass</h4><p>将<code>runOpOperation()</code>中的</p>
-<p><code>patterns.add&lt;FoldDoubleTransposePattern&gt;(&amp;getContext());</code>改为</p>
-<p><code>patterns.add&lt;FoldDoubleTransposePattern,FoldVectorTransposePattern&gt;(&amp;getContext());</code></p>
-<p>将<code>getDepandentDialects()</code>添加vector的dialect</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">getDependentDialects</span><span class="params">(DialectRegistry &amp;registry)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">	registry.<span class="built_in">insert</span>&lt;memref::MemRefDialect,vector::VectorDialect&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="为测试添加vector-case"><a href="#为测试添加vector-case" class="headerlink" title="为测试添加vector case"></a>为测试添加vector case</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">func.func @fold_vector_to_single(%arg0: vector&lt;2x3x4xf32&gt;) -&gt; vector&lt;4x2x3xf32&gt; &#123;</span><br><span class="line">  %0 = vector.transpose %arg0, [1, 2, 0] : vector&lt;2x3x4xf32&gt; to vector&lt;3x4x2xf32&gt;</span><br><span class="line">  %1 = vector.transpose %0, [1, 2, 0] : vector&lt;3x4x2xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">  return %1 : vector&lt;4x2x3xf32&gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @fold_vector_to_single</span><br><span class="line">// CHECK: %[[T:.*]] = vector.transpose %arg0, [2, 0, 1] : vector&lt;2x3x4xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">// CHECK-NOT: vector.transpose %[[T]]</span><br><span class="line">// CHECK: return %[[T]] : vector&lt;4x2x3xf32&gt;</span><br></pre></td></tr></table></figure>
-
-
-
-<p>重新编译 测试</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ cmake --build build --target buddy-opt</span><br><span class="line">[3/3] Linking CXX executable bin/buddy-opt</span><br><span class="line"></span><br><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/permutation-folding.mlir -permutation-folding</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @<span class="built_in">test</span>(%arg0: memref&lt;2x3xf32&gt;) -&gt; memref&lt;2x3xf32&gt; &#123;</span><br><span class="line">    <span class="built_in">return</span> %arg0 : memref&lt;2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">  func.func @fold_to_single(%arg0: memref&lt;2x3x4xf32&gt;) -&gt; memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt; &#123;</span><br><span class="line">    %transpose = memref.transpose %arg0 (d0, d1, d2) -&gt; (d2, d0, d1) : memref&lt;2x3x4xf32&gt; to memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">    <span class="built_in">return</span> %transpose : memref&lt;4x2x3xf32, strided&lt;[1, 12, 4]&gt;&gt;</span><br><span class="line">  &#125;</span><br><span class="line">  func.func @fold_vector_to_single(%arg0: vector&lt;2x3x4xf32&gt;) -&gt; vector&lt;4x2x3xf32&gt; &#123;</span><br><span class="line">    %0 = vector.transpose %arg0, [2, 0, 1] : vector&lt;2x3x4xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">    <span class="built_in">return</span> %0 : vector&lt;4x2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="第二个Pass编写"><a href="#第二个Pass编写" class="headerlink" title="第二个Pass编写"></a>第二个Pass编写</h2><p><code>copy elimination</code>   解决冗余数据搬运消除</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">copy a -&gt; b</span><br><span class="line">... 中间只有读或者无关操作 ...</span><br><span class="line">copy b -&gt; a</span><br></pre></td></tr></table></figure>
-
-<p>要看<code>block</code>内前后操作关系 判断中间操作是否安全 保守处理<code>side effect</code></p>
-<p>至少满足</p>
-<ol>
-<li>第一条 copy 确实是 a -&gt; b</li>
-<li>第二条 copy 确实是 b -&gt; a</li>
-<li>它们在同一个 block 内</li>
-<li>中间没有对 %a 或 %b 的写</li>
-<li>中间没有未知副作用 op</li>
-<li>中间可以有：<ul>
-<li>对 %a &#x2F; %b 的只读操作</li>
-<li>对其他 buffer 的读写</li>
-<li>与 %a&#x2F;%b 无关的纯计算</li>
-</ul>
-</li>
-</ol>
-<h3 id="实现第一版简略"><a href="#实现第一版简略" class="headerlink" title="实现第一版简略"></a>实现第一版简略</h3><p>针对</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">copy a-&gt;b</span><br><span class="line">copy b-&gt;a</span><br></pre></td></tr></table></figure>
-
-<p>将第二条copy删除 保留第一条 因为第一条为b赋值 是必要的</p>
-<h4 id="新建目录"><a href="#新建目录" class="headerlink" title="新建目录"></a>新建目录</h4><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">midend/liv/Conversion/RedundantCopyEliination/</span><br></pre></td></tr></table></figure>
-
-<p>新建文件</p>
-<ul>
-<li><code>CMakeLists.txt</code></li>
-<li>RedundantCopyEliination.cpp</li>
-</ul>
-<h4 id="CMakeLists-txt"><a href="#CMakeLists-txt" class="headerlink" title="CMakeLists.txt"></a>CMakeLists.txt</h4><figure class="highlight txt"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">add_mlir_library(RedundantCoptEliminationPass //创建mlir库 苦命是 ...Pass</span><br><span class="line">  RedundantCopyElimination.cpp  //库源文件是 ....cpp</span><br><span class="line">  </span><br><span class="line">  LINK_LIBS PUBLIC   //依赖</span><br><span class="line">    MLIRFuncDialect</span><br><span class="line">    MLIRIR</span><br><span class="line">    MLIRMemRefDialect</span><br><span class="line">    MLIRPass</span><br><span class="line">    MLIRTransforms</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="Pattern-的书写"><a href="#Pattern-的书写" class="headerlink" title="Pattern 的书写"></a>Pattern 的书写</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">EliminateAdjacentRoundtripCopyPattern</span></span><br><span class="line">    : <span class="keyword">public</span> OpRewritePattern&lt;memref::CopyOp&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> OpRewritePattern&lt;memref::CopyOp&gt;::OpRewritePattern;</span><br><span class="line"></span><br><span class="line">  <span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(memref::CopyOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                                PatternRewriter &amp;rewriter)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    <span class="keyword">auto</span> prevOp = <span class="built_in">dyn_cast_or_null</span>&lt;memref::CopyOp&gt;(op-&gt;<span class="built_in">getPrevNode</span>());</span><br><span class="line">    <span class="keyword">if</span> (!prevOp)</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (prevOp.<span class="built_in">getSource</span>() != op.<span class="built_in">getTarget</span>())</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (prevOp.<span class="built_in">getTarget</span>() != op.<span class="built_in">getSource</span>())</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line">      <span class="comment">//删除第二条copy</span></span><br><span class="line">    rewriter.<span class="built_in">eraseOp</span>(op);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-
-<p><code>class EliminateAdjacentRoundtripCopyPattern: public OpRewritePattern&lt;memref::CopyOp&gt;</code></p>
-<p>对<code>memref::copy</code>操作</p>
-<p><code>op-&gt;getPrevNode()</code></p>
-<p>拿到当前op在同一个block里的前一个兄弟节点</p>
-<p><code>auto prevOp = dyn_cast_or_null&lt;memref::CopyOp&gt;(op-&gt;getPrevNode());</code></p>
-<p>如果前一个<code>op</code>是<code>memref:copy</code>,那么拿到他 否则为<code>nullptr</code></p>
-<p>因为<code>prevOp</code>是<code>memref::copy</code> 那么<code>prevOp</code>一定有source 和 target</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (prevOp.<span class="built_in">getSource</span>() != op.<span class="built_in">getTarget</span>())</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (prevOp.<span class="built_in">getTarget</span>() != op.<span class="built_in">getSource</span>())</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>copy source -&gt; target</p>
-</blockquote>
-<p>例如 </p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">copy a-&gt;b  //prevSource == a prevTarget == b</span><br><span class="line">copy b-&gt;a  //opSource == b opTarget == a</span><br></pre></td></tr></table></figure>
-
-<p>那么</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">prevOp.source == op.target  //a == a</span><br><span class="line">prevOp.target == op.source  //b == b</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="接入Pass-1"><a href="#接入Pass-1" class="headerlink" title="接入Pass"></a>接入Pass</h4><h4 id="书写测试文件"><a href="#书写测试文件" class="headerlink" title="书写测试文件"></a>书写测试文件</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">// RUN: buddy-opt %s -copy-elimination | FileCheck %s</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @eliminate_adjacent(%a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @eliminate_adjacent</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK-NOT: memref.copy %arg1, %arg0</span><br><span class="line">// CHECK: <span class="built_in">return</span></span><br></pre></td></tr></table></figure>
-
-<h4 id="编译测试成功"><a href="#编译测试成功" class="headerlink" title="编译测试成功"></a>编译测试成功</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt</span><br><span class="line"></span><br><span class="line">tests_backup/Conversion/redundant-copy-elimination.mlir -copy-elimination</span><br><span class="line">module &#123;</span><br><span class="line">  func.func @eliminate_adjacent(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    return</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="升级pattern"><a href="#升级pattern" class="headerlink" title="升级pattern"></a>升级pattern</h4><p>实现允许中间夹杂 <code>memory effect free op</code> </p>
-<h4 id="添加头文件-1"><a href="#添加头文件-1" class="headerlink" title="添加头文件"></a>添加头文件</h4><p><code>#include &quot;mlir/Interfaces/SideEffectInterfaces.h&quot;</code></p>
-<p>要用到<code>isMemoryEffectFree(op)</code></p>
-<h4 id="修改matchAndRewrite"><a href="#修改matchAndRewrite" class="headerlink" title="修改matchAndRewrite()"></a>修改matchAndRewrite()</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">EliminateAdjacentRoundtripCopyPattern</span></span><br><span class="line">    : <span class="keyword">public</span> OpRewritePattern&lt;memref::CopyOp&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> OpRewritePattern&lt;memref::CopyOp&gt;::OpRewritePattern;</span><br><span class="line"></span><br><span class="line">  <span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(memref::CopyOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                                PatternRewriter &amp;rewriter)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    Value source = op.<span class="built_in">getSource</span>(); <span class="comment">//获取当前source 和target</span></span><br><span class="line">    Value target = op.<span class="built_in">getTarget</span>();</span><br><span class="line">      <span class="comment">//向前扫描block 获取prevNode操作</span></span><br><span class="line">    <span class="keyword">for</span> (Operation *cursor = op-&gt;<span class="built_in">getPrevNode</span>(); cursor != <span class="literal">nullptr</span>;</span><br><span class="line">         cursor = cursor-&gt;<span class="built_in">getPrevNode</span>()) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="keyword">auto</span> prevCopy = <span class="built_in">dyn_cast_or_null</span>&lt;memref::CopyOp&gt;(cursor)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (prevCopy.<span class="built_in">getSource</span>() == target &amp;&amp; prevCopy.<span class="built_in">getTarget</span>() == source) &#123;</span><br><span class="line">          rewriter.<span class="built_in">eraseOp</span>(op);</span><br><span class="line">          <span class="keyword">return</span> <span class="built_in">success</span>();  <span class="comment">//只要碰见符合删除规则的 直接操做 返回success</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">failure</span>(); <span class="comment">//若找到copy但是不符合 先返回failure</span></span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">isMemoryEffectFree</span>(cursor)) <span class="comment">//跳过pure op继续扫描</span></span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">failure</span>();  <span class="comment">//既不是copy 也不是pure op  保守起见 先返回failure</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">failure</span>(); </span><br><span class="line">  &#125;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="更新测试文件"><a href="#更新测试文件" class="headerlink" title="更新测试文件"></a>更新测试文件</h4><p>添加</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">func.func @eliminate_across_pure_ops(%a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">  memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  %c0 = arith.constant 0 : index</span><br><span class="line">  %c1 = arith.constant 1 : index</span><br><span class="line">  %sum = arith.addi %c0, %c1 : index</span><br><span class="line">  memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  return %sum : index</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @eliminate_across_pure_ops</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK: arith.constant 0 : index</span><br><span class="line">// CHECK: arith.constant 1 : index</span><br><span class="line">// CHECK: arith.addi</span><br><span class="line">// CHECK: return %&#123;&#123;.*&#125;&#125; : index</span><br></pre></td></tr></table></figure>
-
-<p>测试成功</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/redundant-copy-elimination.mlir -copy-elimination</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @eliminate_adjacent(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">  func.func @eliminate_across_pure_ops(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) -&gt; index &#123;</span><br><span class="line">    %c1 = arith.constant 1 : index</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span> %c1 : index </span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>pattern跳过了中间pure op 至于删减的op 应该是被greedy rewrite过程中清理掉了</p>
-<h4 id="添加头文件-2"><a href="#添加头文件-2" class="headerlink" title="添加头文件"></a>添加头文件</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Interfaces/SideEffectInterfaces.h&quot;</span></span></span><br></pre></td></tr></table></figure>
-
-<p>为了使用<code>getEffectsRecursively(op)</code> <code>MemoryEffectOpInterface </code></p>
-<h4 id="添加辅助函数"><a href="#添加辅助函数" class="headerlink" title="添加辅助函数"></a>添加辅助函数</h4><p>为了判断中间op是否能安全跨过</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">valuesMatchEither</span><span class="params">(Value value, Value first, Value second)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> value == first || value == second;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//这里应该传入source target</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">isBenignBetweenCopies</span><span class="params">(Operation *op, Value firstBuffer,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  Value secondBuffer)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">isMemoryEffectFree</span>(op))</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//如果不是pure op  尝试获取effect列表</span></span><br><span class="line">  std::optional&lt;SmallVector&lt;MemoryEffects::EffectInstance&gt;&gt; effects =</span><br><span class="line">      <span class="built_in">getEffectsRecursively</span>(op);</span><br><span class="line">  <span class="keyword">if</span> (!effects) <span class="comment">//拿不到effect 说明未知  保守放弃</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//获取每个effect</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> MemoryEffects::EffectInstance &amp;effect : *effects) &#123;</span><br><span class="line">    Value value = effect.<span class="built_in">getValue</span>(); <span class="comment">//取出内部Value值</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!value)  <span class="comment">//有些effect不能精确绑定某个Value 保守跳过</span></span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//当前effect作用在其他value 与我们的比较值无关 继续遍历</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">valuesMatchEither</span>(value, firstBuffer, secondBuffer))</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">	<span class="comment">//当前effect只读 不修改内存</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">isa</span>&lt;MemoryEffects::Read&gt;(effect.<span class="built_in">getEffect</span>()))</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="修改pattern"><a href="#修改pattern" class="headerlink" title="修改pattern"></a>修改pattern</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">EliminateAdjacentRoundtripCopyPattern</span></span><br><span class="line">    : <span class="keyword">public</span> OpRewritePattern&lt;memref::CopyOp&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> OpRewritePattern&lt;memref::CopyOp&gt;::OpRewritePattern;</span><br><span class="line"></span><br><span class="line">  <span class="function">LogicalResult <span class="title">matchAndRewrite</span><span class="params">(memref::CopyOp op,</span></span></span><br><span class="line"><span class="params"><span class="function">                                PatternRewriter &amp;rewriter)</span> <span class="type">const</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    Value source = op.<span class="built_in">getSource</span>();</span><br><span class="line">    Value target = op.<span class="built_in">getTarget</span>();</span><br><span class="line">    <span class="keyword">for</span> (Operation *cursor = op-&gt;<span class="built_in">getPrevNode</span>(); cursor != <span class="literal">nullptr</span>;</span><br><span class="line">         cursor = cursor-&gt;<span class="built_in">getPrevNode</span>()) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="keyword">auto</span> prevCopy = <span class="built_in">dyn_cast_or_null</span>&lt;memref::CopyOp&gt;(cursor)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (prevCopy.<span class="built_in">getSource</span>() == target &amp;&amp; prevCopy.<span class="built_in">getTarget</span>() == source) &#123;</span><br><span class="line">          rewriter.<span class="built_in">eraseOp</span>(op);</span><br><span class="line">          <span class="keyword">return</span> <span class="built_in">success</span>();</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (!<span class="built_in">isBenignBetweenCopies</span>(cursor, source, target))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">failure</span>();</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="添加测试文件"><a href="#添加测试文件" class="headerlink" title="添加测试文件"></a>添加测试文件</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">//对其他buffer写 能够穿过 删除第二条copy</span><br><span class="line">func.func @eliminate_with_unrelated_write(</span><br><span class="line">    %a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;, %c: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">  memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  %c0 = arith.constant 0 : index</span><br><span class="line">  %v = arith.constant 1.0 : f32</span><br><span class="line">  memref.store %v, %c[%c0] : memref&lt;8xf32&gt;  //与%a,%b无关</span><br><span class="line">  memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  return</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//写b 无法删除copy</span><br><span class="line">func.func @keep_when_b_written(%a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">  memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  %c0 = arith.constant 0 : index</span><br><span class="line">  %v = arith.constant 2.0 : f32</span><br><span class="line">  memref.store %v, %b[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">  memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  return</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//未知副作用 不能删除copy</span><br><span class="line">func.func private @opaque_read_write(memref&lt;8xf32&gt;)</span><br><span class="line"></span><br><span class="line">func.func @keep_when_unknown_side_effect(</span><br><span class="line">    %a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">  memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  call @opaque_read_write(%b) : (memref&lt;8xf32&gt;) -&gt; ()</span><br><span class="line">  memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">  return</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @eliminate_with_unrelated_write</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK-NOT: memref.copy %arg1, %arg0</span><br><span class="line">// CHECK: %[[C0:.*]] = arith.constant 0 : index</span><br><span class="line">// CHECK: %[[V:.*]] = arith.constant 1.000000e+00 : f32</span><br><span class="line">// CHECK: memref.store %[[V]], %arg2[%[[C0]]] : memref&lt;8xf32&gt;</span><br><span class="line">// CHECK: return</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @keep_when_b_written</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK: %[[C0:.*]] = arith.constant 0 : index</span><br><span class="line">// CHECK: %[[V:.*]] = arith.constant 2.000000e+00 : f32</span><br><span class="line">// CHECK: memref.store %[[V]], %arg1[%[[C0]]] : memref&lt;8xf32&gt;</span><br><span class="line">// CHECK: memref.copy %arg1, %arg0</span><br><span class="line">// CHECK: return</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @keep_when_unknown_side_effect</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK: call @opaque_read_write(%arg1) : (memref&lt;8xf32&gt;) -&gt; ()</span><br><span class="line">// CHECK: memref.copy %arg1, %arg0</span><br><span class="line">// CHECK: return</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="编译测试成功-1"><a href="#编译测试成功-1" class="headerlink" title="编译测试成功"></a>编译测试成功</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/redundant-copy-elimination.mlir -copy-elimination</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @eliminate_adjacent(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">  //保留中间pure op</span><br><span class="line">  func.func @eliminate_across_pure_ops(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) -&gt; index &#123;</span><br><span class="line">    %c1 = arith.constant 1 : index</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span> %c1 : index  </span><br><span class="line">  &#125;</span><br><span class="line">  //对其他buffer写 删除copy</span><br><span class="line">  func.func @eliminate_with_unrelated_write(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;, %arg2: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    %cst = arith.constant 1.000000e+00 : f32</span><br><span class="line">    %c0 = arith.constant 0 : index</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    memref.store %cst, %arg2[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">  //b被写 保留copy</span><br><span class="line">  func.func @keep_when_b_written(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    %cst = arith.constant 2.000000e+00 : f32</span><br><span class="line">    %c0 = arith.constant 0 : index</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    memref.store %cst, %arg1[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    memref.copy %arg1, %arg0 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">  //未知影响 保守保留</span><br><span class="line">  func.func private @opaque_read_write(memref&lt;8xf32&gt;)</span><br><span class="line">  func.func @keep_when_unknown_side_effect(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;) &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    call @opaque_read_write(%arg1) : (memref&lt;8xf32&gt;) -&gt; ()</span><br><span class="line">    memref.copy %arg1, %arg0 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    <span class="built_in">return</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h3 id="创建pipeline"><a href="#创建pipeline" class="headerlink" title="创建pipeline"></a>创建pipeline</h3><h4 id="创建文件"><a href="#创建文件" class="headerlink" title="创建文件"></a>创建文件</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">midend/lib/Conversion/OptimizationPipeline/CMakeLists.txt</span><br><span class="line">midend/lib/Conversion/OptimizationPipeline/BuddyOptimizationPipeline.cpp</span><br></pre></td></tr></table></figure>
-
-<h4 id="写CMake文件"><a href="#写CMake文件" class="headerlink" title="写CMake文件"></a>写CMake文件</h4><figure class="highlight txt"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">add_mlir_library(BuddyOptimizationPipeline</span><br><span class="line">  BuddyOptimizationPipeline.cpp</span><br><span class="line"></span><br><span class="line">  LINK_LIBS PUBLIC</span><br><span class="line">    MLIRFuncDialect</span><br><span class="line">    MLIRIR</span><br><span class="line">    MLIRPass</span><br><span class="line">    MLIRTransforms</span><br><span class="line">    PermutationFoldingPass</span><br><span class="line">    RedundantCopyEliminationPass</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="写cpp文件"><a href="#写cpp文件" class="headerlink" title="写cpp文件"></a>写cpp文件</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Dialect/Func/IR/FuncOps.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Pass/PassManager.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;mlir/Transforms/Passes.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> mlir &#123;</span><br><span class="line"><span class="keyword">namespace</span> buddy &#123;</span><br><span class="line"></span><br><span class="line"><span class="comment">//声明工厂函数</span></span><br><span class="line"><span class="function">std::unique_ptr&lt;Pass&gt; <span class="title">createPermutationFoldingPass</span><span class="params">()</span></span>;</span><br><span class="line"><span class="function">std::unique_ptr&lt;Pass&gt; <span class="title">createRedundantCopyEliminationPass</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">//pipeline告诉mlir pass应该嵌套跑在 func::FuncOp上</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">buildBuddyOptimizationPipeline</span><span class="params">(OpPassManager &amp;pm)</span> </span>&#123;</span><br><span class="line">  pm.<span class="built_in">addNestedPass</span>&lt;func::FuncOp&gt;(<span class="built_in">createCanonicalizerPass</span>());</span><br><span class="line">  pm.<span class="built_in">addNestedPass</span>&lt;func::FuncOp&gt;(<span class="built_in">createPermutationFoldingPass</span>());</span><br><span class="line">  pm.<span class="built_in">addNestedPass</span>&lt;func::FuncOp&gt;(<span class="built_in">createCSEPass</span>());</span><br><span class="line">  pm.<span class="built_in">addNestedPass</span>&lt;func::FuncOp&gt;(<span class="built_in">createRedundantCopyEliminationPass</span>());</span><br><span class="line">  pm.<span class="built_in">addNestedPass</span>&lt;func::FuncOp&gt;(<span class="built_in">createCanonicalizerPass</span>());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//注册</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">registerBuddyOptimizationPipelines</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  PassPipelineRegistration&lt;&gt;(</span><br><span class="line">      <span class="string">&quot;buddy-mini-opt-pipeline&quot;</span>,  <span class="comment">//命令</span></span><br><span class="line">      <span class="string">&quot;Run a small Buddy optimization pipeline: canonicalize -&gt; &quot;</span></span><br><span class="line">      <span class="string">&quot;permutation-folding -&gt; cse -&gt; copy-elimination -&gt; canonicalize.&quot;</span>,</span><br><span class="line">      buildBuddyOptimizationPipeline);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#125; <span class="comment">// namespace buddy</span></span><br><span class="line">&#125; <span class="comment">// namespace mlir</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="创建Pass实例"><a href="#创建Pass实例" class="headerlink" title="创建Pass实例"></a>创建Pass实例</h4><p>在两个pass.cpp文件末尾加上</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;Pass&gt; <span class="title">createRedundantCopyEliminationPass</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;RedundantCopyEliminationPass&gt;();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">std::unique_ptr&lt;Pass&gt; <span class="title">createPermutationFoldingPass</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;PermutationFoldingPass&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="将pipeline接入工程"><a href="#将pipeline接入工程" class="headerlink" title="将pipeline接入工程"></a>将pipeline接入工程</h4><p>在<code>midend/lib/Conversion/CmakeLists.txt</code>加入<code>add_subdirectory(OptimizationPipeline)</code></p>
-<p>在<code>midend/lib/CMakeLists.txt</code>加入<code>BuddyOptimizationPipeline</code></p>
-<p>在<code>tools/buddy-opt/CMakeLists.txt</code>加入 <code>  BuddyOptimizationPipeline</code></p>
-<p>在<code>midend/lib/InitAll.cpp</code>声明并注册<code>void registerBuddyOptimizationPipeline()</code></p>
-<p>在<code>tools/buddy-opt/buddy-opt.cpp</code>声明并注册</p>
-<h4 id="写测试文件-1"><a href="#写测试文件-1" class="headerlink" title="写测试文件"></a>写测试文件</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">// RUN: buddy-opt %s -buddy-mini-opt-pipeline | FileCheck %s</span><br><span class="line"></span><br><span class="line">module &#123;</span><br><span class="line">  func.func @pipeline_demo(%a: memref&lt;8xf32&gt;, %b: memref&lt;8xf32&gt;,</span><br><span class="line">                           %v: vector&lt;2x3x4xf32&gt;) -&gt; vector&lt;4x2x3xf32&gt; &#123;</span><br><span class="line">    memref.copy %a, %b : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    %c0 = arith.constant 0 : index</span><br><span class="line">    %x = memref.load %a[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    %y = memref.load %b[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    %sum = arith.addf %x, %y : f32</span><br><span class="line">    memref.copy %b, %a : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line"></span><br><span class="line">    %t0 = vector.transpose %v, [1, 2, 0] : vector&lt;2x3x4xf32&gt; to vector&lt;3x4x2xf32&gt;</span><br><span class="line">    %t1 = vector.transpose %t0, [1, 2, 0] : vector&lt;3x4x2xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line"></span><br><span class="line">    return %t1 : vector&lt;4x2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// CHECK-LABEL: func.func @pipeline_demo</span><br><span class="line">// CHECK: memref.copy %arg0, %arg1</span><br><span class="line">// CHECK-NOT: memref.copy %arg1, %arg0</span><br><span class="line">// CHECK: %[[T:.*]] = vector.transpose %arg2, [2, 0, 1] : vector&lt;2x3x4xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">// CHECK: return %[[T]] : vector&lt;4x2x3xf32&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="编译成功"><a href="#编译成功" class="headerlink" title="编译成功"></a>编译成功</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt --help | grep buddy-mini-opt-pipeline</span><br><span class="line">      --buddy-mini-opt-pipeline                              -   Run a small Buddy optimization pipeline: canonicalize -&gt; permutation-folding -&gt; cse -&gt; copy-elimination -&gt; canonicalize.</span><br></pre></td></tr></table></figure>
-
-<h4 id="测试-1"><a href="#测试-1" class="headerlink" title="测试"></a>测试</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/buddy-mini-opt-pipeline.mlir</span><br><span class="line">module &#123;</span><br><span class="line">  func.func @pipeline_demo(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;, %arg2: vector&lt;2x3x4xf32&gt;) -&gt; vector&lt;4x2x3xf32&gt; &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    %c0 = arith.constant 0 : index</span><br><span class="line">    %0 = memref.load %arg0[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    %1 = memref.load %arg1[%c0] : memref&lt;8xf32&gt;</span><br><span class="line">    %2 = arith.addf %0, %1 : f32</span><br><span class="line">    memref.copy %arg1, %arg0 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    %3 = vector.transpose %arg2, [1, 2, 0] : vector&lt;2x3x4xf32&gt; to vector&lt;3x4x2xf32&gt;</span><br><span class="line">    %4 = vector.transpose %3, [1, 2, 0] : vector&lt;3x4x2xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">    <span class="built_in">return</span> %4 : vector&lt;4x2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">glcyx@DESKTOP-RBF8NMF:~/buddy-mlir$ build/bin/buddy-opt tests_backup/Conversion/buddy-mini-opt-pipeline.mlir -buddy-mini-opt-pipeline</span><br><span class="line">module &#123;</span><br><span class="line">  func.func @pipeline_demo(%arg0: memref&lt;8xf32&gt;, %arg1: memref&lt;8xf32&gt;, %arg2: vector&lt;2x3x4xf32&gt;) -&gt; vector&lt;4x2x3xf32&gt; &#123;</span><br><span class="line">    memref.copy %arg0, %arg1 : memref&lt;8xf32&gt; to memref&lt;8xf32&gt;</span><br><span class="line">    %0 = vector.transpose %arg2, [2, 0, 1] : vector&lt;2x3x4xf32&gt; to vector&lt;4x2x3xf32&gt;</span><br><span class="line">    <span class="built_in">return</span> %0 : vector&lt;4x2x3xf32&gt;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-
-
-<h3 id="测试总结"><a href="#测试总结" class="headerlink" title="测试总结"></a>测试总结</h3><p><code>permutation-folding.mlir</code></p>
-<ul>
-<li>验证 identity folding</li>
-<li>验证 fold-to-single memref transpose</li>
-<li>验证 fold-to-single vector transpose</li>
-<li>最好再留一个负例：单个 transpose 不该被折叠</li>
-</ul>
-<p><code>redundant-copy-elimination.mlir</code></p>
-<ul>
-<li>验证紧邻 roundtrip copy 删除</li>
-<li>验证跨 read op 删除</li>
-<li>验证跨无关写删除</li>
-<li>验证写 %a&#x2F;%b 时不删</li>
-<li>验证未知副作用时不删</li>
-</ul>
-<p><code>buddy-mini-opt-pipeline.mlir</code></p>
-<ul>
-<li>验证两个 pass 能在同一个 pipeline 中同时生效</li>
-<li>重点看最终 before&#x2F;after IR 是否符合预期</li>
-</ul>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/04/05/InlinerPass-cpp%E9%98%85%E8%AF%BB/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1661,6 +1261,175 @@
   
   
 
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://glcyx.github.io/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="Glcyx">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Glcyx的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2026/02/27/CSE-cpp%E9%98%85%E8%AF%BB/" class="post-title-link" itemprop="url">CSE.cpp阅读</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-02-27 20:08:41" itemprop="dateCreated datePublished" datetime="2026-02-27T20:08:41+08:00">2026-02-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-20 15:28:02" itemprop="dateModified" datetime="2026-04-20T15:28:02+08:00">2026-04-20</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MLIR/" itemprop="url" rel="index"><span itemprop="name">MLIR</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p><a target="_blank" rel="noopener" href="https://github.com/llvm/llvm-project/blob/main/mlir/lib/Transforms/CSE.cpp">CSE.cpp</a></p>
+<p>这个<code>pass</code>也非常常见,平时经常就是<code>canonicalize</code>后面跟一个<code>cse</code></p>
+<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><h3 id="目的"><a href="#目的" class="headerlink" title="目的:"></a>目的:</h3><p><code>CSE</code>也就是<code>Common Subexpression Elimination</code></p>
+<p>核心目标就是消除重复计算</p>
+<p>如果两个<code>op</code></p>
+<ul>
+<li>操作类型相同</li>
+<li>操作数相同</li>
+<li>属性相同</li>
+<li>没有会影响结果的副作用</li>
+</ul>
+<p>那么后一个<code>op</code>就没必要再算一次,直接复用前一个结果就行</p>
+<h3 id="命令行参数"><a href="#命令行参数" class="headerlink" title="命令行参数"></a>命令行参数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">StringRef <span class="title">getArgument</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span> </span>&#123; <span class="keyword">return</span> <span class="string">&quot;cse&quot;</span>; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>执行命令就是</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mlir-opt xxx.mlir -cse</span><br></pre></td></tr></table></figure>
+
+<h2 id="一个最简单的理解"><a href="#一个最简单的理解" class="headerlink" title="一个最简单的理解"></a>一个最简单的理解</h2><p>例如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">%0 = arith.addi %a, %b : i32</span><br><span class="line">%1 = arith.addi %a, %b : i32</span><br></pre></td></tr></table></figure>
+
+<p>如果这两个<code>op</code>都没有副作用,那么第二个就可以删掉,把<code>%1</code>的使用点都替换成<code>%0</code></p>
+<p>这个思想本身不复杂,但真正做的时候要考虑:</p>
+<ul>
+<li>支配关系</li>
+<li>region &#x2F; block 层级</li>
+<li>带副作用的op不能乱合并</li>
+</ul>
+<h2 id="核心逻辑"><a href="#核心逻辑" class="headerlink" title="核心逻辑"></a>核心逻辑</h2><h3 id="不是简单全局哈希一下就结束"><a href="#不是简单全局哈希一下就结束" class="headerlink" title="不是简单全局哈希一下就结束"></a>不是简单全局哈希一下就结束</h3><p>第一眼可能会觉得</p>
+<blockquote>
+<p>那不就是给op做个hash,一样的就替换</p>
+</blockquote>
+<p>但实际上不行</p>
+<p>因为前面的op必须能支配后面的op</p>
+<p>也就是说 你要替换一个结果,前提是原来那个结果在控制流上对当前点可见</p>
+<p>所以这个<code>pass</code>要结合遍历顺序和作用域结构来做</p>
+<h3 id="遍历方式"><a href="#遍历方式" class="headerlink" title="遍历方式"></a>遍历方式</h3><p>这个文件里会递归处理 operation &#x2F; region &#x2F; block</p>
+<p>因为MLIR IR本身就是嵌套结构,不是简单一层线性指令</p>
+<p>所以<code>CSE</code>不能只看一个block里的相邻语句,而是要在合法支配范围内维护“当前已经见过且可复用的表达式”</p>
+<h3 id="hasNoSideEffect-这种判断非常关键"><a href="#hasNoSideEffect-这种判断非常关键" class="headerlink" title="hasNoSideEffect 这种判断非常关键"></a><code>hasNoSideEffect</code> 这种判断非常关键</h3><p>重复表达式消除有个前提</p>
+<blockquote>
+<p>这个op要足够“纯”</p>
+</blockquote>
+<p>比如:</p>
+<ul>
+<li>常量</li>
+<li>加法</li>
+<li>一些纯计算</li>
+</ul>
+<p>这些是可以合并的</p>
+<p>但如果一个op会:</p>
+<ul>
+<li>写内存</li>
+<li>读取某些会变化的状态</li>
+<li>产生外部可观察副作用</li>
+</ul>
+<p>那就不能简单认为“长得一样所以结果一样”</p>
+<p>这也是<code>CSE</code>和普通文本去重完全不是一回事的原因</p>
+<h2 id="值得注意的地方"><a href="#值得注意的地方" class="headerlink" title="值得注意的地方"></a>值得注意的地方</h2><h3 id="block-argument-不能乱动"><a href="#block-argument-不能乱动" class="headerlink" title="block argument 不能乱动"></a>block argument 不能乱动</h3><p><code>CSE</code>主要处理的是重复<code>op</code></p>
+<p>而不是把所有值都拿来乱合并</p>
+<p>像<code>BlockArgument</code>这种值来源就不是某个具体<code>op</code>,所以处理逻辑本来就不同</p>
+<h3 id="region嵌套时作用域会变化"><a href="#region嵌套时作用域会变化" class="headerlink" title="region嵌套时作用域会变化"></a>region嵌套时作用域会变化</h3><p>MLIR里一个operation内部还能套region</p>
+<p>所以进入一个新的region时,你要考虑:</p>
+<ul>
+<li>外层有哪些值是可见的</li>
+<li>当前层新增了哪些可候选的表达式</li>
+<li>离开作用域后哪些东西不能继续拿来复用</li>
+</ul>
+<p>这个文件一个比较重要的点就是把这种嵌套结构里的可用表达式管理起来</p>
+<h3 id="死代码删除会顺手发生"><a href="#死代码删除会顺手发生" class="headerlink" title="死代码删除会顺手发生"></a>死代码删除会顺手发生</h3><p>当后一个重复op被替换掉以后,它自己就没用了</p>
+<p>这时候就可以被删掉</p>
+<p>所以<code>CSE</code>看起来只是“合并重复表达式”,实际上最后效果经常会让IR明显短一截</p>
+<h2 id="为什么经常接在canonicalize后面"><a href="#为什么经常接在canonicalize后面" class="headerlink" title="为什么经常接在canonicalize后面"></a>为什么经常接在<code>canonicalize</code>后面</h2><p>因为<code>canonicalize</code>经常会把IR整理成更规范的形式</p>
+<p>比如原本写法不同但语义等价的东西,先被整理成统一样子</p>
+<p>这时候再跑<code>CSE</code>,就更容易识别出“你们两个其实一样”</p>
+<p>所以顺序上:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">canonicalize -&gt; cse</span><br></pre></td></tr></table></figure>
+
+<p>很常见</p>
+<p>如果中间又生成了新的可简化形式,后面甚至再补一个<code>canonicalize</code></p>
+<h2 id="对自己写优化有什么帮助"><a href="#对自己写优化有什么帮助" class="headerlink" title="对自己写优化有什么帮助"></a>对自己写优化有什么帮助</h2><p>我觉得看这个文件主要是提醒自己:</p>
+<h3 id="第一-不是所有重复长相的op都能合并"><a href="#第一-不是所有重复长相的op都能合并" class="headerlink" title="第一,不是所有重复长相的op都能合并"></a>第一,不是所有重复长相的op都能合并</h3><p>要先看支配关系和副作用</p>
+<h3 id="第二-优化pass之间是会互相喂机会的"><a href="#第二-优化pass之间是会互相喂机会的" class="headerlink" title="第二,优化pass之间是会互相喂机会的"></a>第二,优化pass之间是会互相喂机会的</h3><p>一个pass并不需要把所有事情做完</p>
+<p>它只要把IR往更规范、更简洁的方向推一步,后面的pass就可能继续接力</p>
+<h3 id="第三-MLIR里很多“常规优化”其实已经有现成pass"><a href="#第三-MLIR里很多“常规优化”其实已经有现成pass" class="headerlink" title="第三,MLIR里很多“常规优化”其实已经有现成pass"></a>第三,MLIR里很多“常规优化”其实已经有现成pass</h3><p>所以自己写pipeline的时候,不用每次都从零开始造轮子</p>
+<p>像</p>
+<ul>
+<li><code>canonicalize</code></li>
+<li><code>cse</code></li>
+</ul>
+<p>这种基础pass先接上,很多中间垃圾会自己少很多</p>
+<h2 id="一个整体印象"><a href="#一个整体印象" class="headerlink" title="一个整体印象"></a>一个整体印象</h2><p><code>CSE.cpp</code>读下来没有那种特别花的技巧,但很典型</p>
+<p>它体现的是编译器里一个很基础但是很重要的思路:</p>
+<blockquote>
+<p>在保证语义不变的前提下,不要重复做同样的计算</p>
+</blockquote>
+<p>而MLIR把这件事放在嵌套IR结构里来做,所以比单block文本理解要更有意思一点</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
 
   
   <nav class="pagination">
@@ -1718,7 +1487,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-count">17</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1731,7 +1500,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-count">13</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
